@@ -1,0 +1,95 @@
+{
+  "DatastoreConfigs": [
+    {
+      "Datastore": "MyDataset",
+      "AdminDbName": "MyDataset",
+      "ClearDatastore": true,
+      "Config": {
+        "DriverName": "bigquery",
+        "Parameters": {
+          "serviceAccountId": "565950306583-hu98foqgnunu6a1a043plvl03ip60j5g@developer.gserviceaccount.com",
+          "privateKeyPath": "/etc/sm/test_service.pem",
+          "projectId": "spheric-arcadia-98015",
+          "datasetId": "MyDataset",
+          "dateFormat": "yyyy-MM-dd HH:mm:ss z"
+        }
+      },
+      "Descriptors": [
+        {
+          "Table": "travelers1",
+          "PkColumns": [
+            "id"
+          ],
+          "Schema": [
+            {
+              "name": "id",
+              "type": "integer"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            },
+            {
+              "name": "lastVisitTime",
+              "type": "timestamp"
+            },
+            {
+              "mode": "repeated",
+              "name": "visitedCities",
+              "type": "record",
+              "fields": [
+                {
+                  "name": "visits",
+                  "type": "integer"
+                },
+                {
+                  "name": "city",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "mode": "repeated",
+              "name": "achievements",
+              "type": "string"
+            },
+            {
+              "name": "mostLikedCity",
+              "type": "record",
+              "fields": [
+                {
+                  "name": "visits",
+                  "type": "integer"
+                },
+                {
+                  "name": "city",
+                  "type": "string"
+                },
+                {
+                  "mode": "repeated",
+                  "name": "souvenirs",
+                  "type": "string"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Table": "travelers2",
+          "PkColumns": [
+            "id"
+          ],
+          "SchemaUrl": "test:///test/traveler_schema.json"
+        },
+        {
+          "Table": "travelers3",
+          "PkColumns": [
+            "id"
+          ],
+          "SchemaUrl": "test:///test/traveler_schema.json"
+        }
+      ]
+    }
+  ]
+}
+

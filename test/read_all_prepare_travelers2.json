@@ -1,0 +1,73 @@
+[
+  {
+    "id": 1,
+    "name": "Rob",
+    "visitedCities": [
+      {
+        "visits": 3,
+        "city": "Warsaw"
+      },
+      {
+        "visits": 5,
+        "city": "Berlin"
+      }
+    ],
+    "mostLikedCity": {
+      "visits": 5,
+      "city": "Berlin"
+    },
+    "achievements": [
+      "abc",
+      "cde"
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Rudi",
+    "visitedCities": [
+      {
+        "visits": 3,
+        "city": "Warsaw"
+      },
+      {
+        "visits": 5,
+        "city": "Berlin"
+      }
+    ],
+    "mostLikedCity": {
+      "visits": 5,
+      "city": "Berlin"
+    },
+    "achievements": [
+      "abc",
+      "cde"
+    ]
+  },
+  {
+    "id": 4,
+    "name": "Vudi",
+    "lastVisitTime": "2016-06-02 21:46:19 UTC",
+    "visitedCities": [
+      {
+        "visits": 1,
+        "city": "Paris"
+      },
+      {
+        "visits": 3,
+        "city": "Warsaw"
+      }
+    ],
+    "mostLikedCity": {
+      "visits": 1,
+      "city": "Paris",
+      "Souvenirs": [
+        "1",
+        "B"
+      ]
+    },
+    "achievements": [
+      "xyz",
+      "def"
+    ]
+  }
+]

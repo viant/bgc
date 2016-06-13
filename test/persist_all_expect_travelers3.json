@@ -1,0 +1,23 @@
+[
+  {
+    "id": 10,
+    "name": "Cook"
+  },
+  {
+    "id": 20,
+    "name": "Robin",
+    "lastVisitTime": "<ds:within_sec [\"now\",60, \"\"]>",
+    "achievements": [
+      "w",
+      "a"
+    ],
+    "mostLikedCity": {
+      "city": "Moscow",
+      "visits": 3,
+      "souvenirs": [
+        "s3",
+        "sN"
+      ]
+    }
+  }
+]
