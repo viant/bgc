@@ -35,9 +35,8 @@ func (f *managerFactory) Create(config *dsc.Config) (dsc.Manager, error) {
 	return self, nil
 }
 
-
-func (f managerFactory) CreateFromURL(url string) ( dsc.Manager, error) {
-	reader, _, err :=toolbox.OpenReaderFromURL(url)
+func (f managerFactory) CreateFromURL(url string) (dsc.Manager, error) {
+	reader, _, err := toolbox.OpenReaderFromURL(url)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +45,7 @@ func (f managerFactory) CreateFromURL(url string) ( dsc.Manager, error) {
 	return f.Create(config)
 }
 
-func newManagerFactory()  dsc.ManagerFactory {
+func newManagerFactory() dsc.ManagerFactory {
 	var result dsc.ManagerFactory = &managerFactory{}
 	return result
 }

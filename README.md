@@ -1,6 +1,6 @@
 # Datastore Connectivity for BigQuery (bgc)
 
-Datastore Connectivity library for BigQuery in Go.
+[![Datastore Connectivity library for BigQuery in Go.](https://goreportcard.com/badge/github.com/viant/bgc)](https://goreportcard.com/report/github.com/viant/bgc)
 
 This library is compatible with Go 1.5+
 

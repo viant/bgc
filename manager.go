@@ -19,10 +19,11 @@
 package bgc
 
 import (
-	"github.com/viant/dsc"
 	"database/sql"
 	"fmt"
 	"reflect"
+
+	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
 )
 
@@ -58,7 +59,7 @@ func (m *manager) PersistAllOnConnection(connection dsc.Connection, dataPointer 
 		if err != nil {
 			return 0, 0, err
 		}
-		parameters:=toolbox.NewSliceIterator(parametrizerSQL.Values)
+		parameters := toolbox.NewSliceIterator(parametrizerSQL.Values)
 		valueMap, _ := statement.ColumnValueMap(parameters)
 		rows = append(rows, valueMap)
 	}
@@ -81,9 +82,9 @@ func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sql
 	if err != nil {
 		return nil, err
 	}
-	switch (statement.Type) {
-	case "INSERT" :
-		parameters:= toolbox.NewSliceIterator(sqlParameters)
+	switch statement.Type {
+	case "INSERT":
+		parameters := toolbox.NewSliceIterator(sqlParameters)
 		values, err := statement.ColumnValueMap(parameters)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to prepare insert data due to %v", err)
@@ -99,13 +100,12 @@ func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sql
 		}
 		return dsc.NewSQLResult(int64(1), int64(0)), nil
 
-
 	default:
 		return nil, fmt.Errorf("%v is not supproted by bigquery at m time", statement.Type)
 	}
 }
 
-func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sql string, args []interface{}, readingHandler func(scanner  dsc.Scanner) (toContinue bool, err error)) error {
+func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sql string, args []interface{}, readingHandler func(scanner dsc.Scanner) (toContinue bool, err error)) error {
 	sql = m.ExpandSQL(sql, args)
 	iterator, err := NewQueryIterator(m.Manager, sql)
 	if err != nil {
@@ -133,7 +133,7 @@ func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sq
 		if err != nil {
 			return fmt.Errorf("Failed to read bigquery %v - unable to map recrod %v", sql, err)
 		}
-		if ! toContinue {
+		if !toContinue {
 			break
 		}
 	}
@@ -142,9 +142,8 @@ func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sq
 
 func newConfig(cfg *dsc.Config) *config {
 	return &config{
-		Config:cfg,
-		projectID:cfg.Get("projectId"),
-		datasetID:cfg.Get("datasetId"),
+		Config:    cfg,
+		projectID: cfg.Get("projectId"),
+		datasetID: cfg.Get("datasetId"),
 	}
 }
-

@@ -19,13 +19,14 @@
 package bgc
 
 import (
-	"time"
-	"google.golang.org/api/bigquery/v2"
-	"golang.org/x/net/context"
 	"errors"
-	"github.com/viant/dsc"
 	"strings"
+	"time"
+
+	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
+	"golang.org/x/net/context"
+	"google.golang.org/api/bigquery/v2"
 )
 
 var useLegacySQL = "/* USE LEGACY SQL */"
@@ -52,7 +53,6 @@ type QueryIterator struct {
 func (qi *QueryIterator) HasNext() bool {
 	return qi.processedRows < qi.totalRows
 }
-
 
 //Unwarpping big query nested result
 func unwrapValueIfNeeded(value interface{}, field *bigquery.TableFieldSchema) interface{} {
@@ -109,7 +109,7 @@ func toValue(source interface{}, field *bigquery.TableFieldSchema) interface{} {
 }
 
 //Next returns next row.
-func (qi *QueryIterator)  Next() ([]interface{}, error) {
+func (qi *QueryIterator) Next() ([]interface{}, error) {
 	qi.processedRows++
 	qi.rowsIndex++
 	if int(qi.rowsIndex) >= len(qi.Rows) {
@@ -128,7 +128,7 @@ func (qi *QueryIterator)  Next() ([]interface{}, error) {
 	return values, nil
 }
 
-func (qi *QueryIterator) fetchPage() (error) {
+func (qi *QueryIterator) fetchPage() error {
 	queryResultCall := qi.service.Jobs.GetQueryResults(qi.projectID, qi.jobReferenceID)
 	queryResultCall.MaxResults(queryPageSize).PageToken(qi.pageToken)
 	jobGetResult, err := queryResultCall.Context(qi.context).Do()
@@ -161,32 +161,32 @@ func (qi *QueryIterator) GetColumns() ([]string, error) {
 }
 
 //NewQueryIterator creates a new query iterator for passed in datastore manager and query.
-func NewQueryIterator(manager  dsc.Manager, query string) (*QueryIterator, error) {
+func NewQueryIterator(manager dsc.Manager, query string) (*QueryIterator, error) {
 	service, context, err := GetServiceAndContextForManager(manager)
 	if err != nil {
 		return nil, err
 	}
 
-	useLegacySQL := strings.Contains(query, useLegacySQL) && ! strings.Contains(strings.ToLower(query), "group by")
+	useLegacySQL := strings.Contains(query, useLegacySQL) && !strings.Contains(strings.ToLower(query), "group by")
 
 	config := manager.Config()
 
 	projectID := config.Get("projectId")
 	datasetID := config.Get("datasetId")
 
-	datasetReference := &bigquery.DatasetReference{ProjectId:projectID, DatasetId:datasetID}
+	datasetReference := &bigquery.DatasetReference{ProjectId: projectID, DatasetId: datasetID}
 	jobConfigurationQuery := &bigquery.JobConfigurationQuery{
-		Query:query,
-		DefaultDataset:datasetReference,
+		Query:          query,
+		DefaultDataset: datasetReference,
 	}
 
-	if ! useLegacySQL {
+	if !useLegacySQL {
 		jobConfigurationQuery.UseLegacySql = false
 		jobConfigurationQuery.ForceSendFields = []string{"UseLegacySql"}
 	}
 
-	jobConfiguration := &bigquery.JobConfiguration{Query:jobConfigurationQuery}
-	queryJob := bigquery.Job{Configuration:jobConfiguration}
+	jobConfiguration := &bigquery.JobConfiguration{Query: jobConfigurationQuery}
+	queryJob := bigquery.Job{Configuration: jobConfiguration}
 	jobCall := service.Jobs.Insert(projectID, &queryJob)
 
 	postedJob, err := jobCall.Context(context).Do()
@@ -198,11 +198,11 @@ func NewQueryIterator(manager  dsc.Manager, query string) (*QueryIterator, error
 		return nil, err
 	}
 	result := &QueryIterator{
-		service:service,
-		context:context,
-		projectID:projectID,
-		jobReferenceID:responseJob.JobReference.JobId,
-		Rows           :make([]*bigquery.TableRow, 0),
+		service:        service,
+		context:        context,
+		projectID:      projectID,
+		jobReferenceID: responseJob.JobReference.JobId,
+		Rows:           make([]*bigquery.TableRow, 0),
 	}
 	err = result.fetchPage()
 	if err != nil {
@@ -210,5 +210,3 @@ func NewQueryIterator(manager  dsc.Manager, query string) (*QueryIterator, error
 	}
 	return result, nil
 }
-
-

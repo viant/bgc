@@ -1,4 +1,3 @@
-
 /*
  *
  *
@@ -20,19 +19,20 @@
 package bgc
 
 import (
-	"errors"
-	"github.com/viant/dsc"
-	"fmt"
-	"google.golang.org/api/bigquery/v2"
 	"encoding/json"
+	"errors"
+	"fmt"
+
+	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
+	"google.golang.org/api/bigquery/v2"
 )
 
 var errorUnsupported = errors.New("Unsupported operation")
 
-type dialect struct{dsc.DatastoreDialect}
+type dialect struct{ dsc.DatastoreDialect }
 
-func (d dialect) DropTable(manager  dsc.Manager, datastore string, table string) (error) {
+func (d dialect) DropTable(manager dsc.Manager, datastore string, table string) error {
 	config := manager.Config()
 	service, context, err := GetServiceAndContextForManager(manager)
 	if err != nil {
@@ -45,7 +45,7 @@ func (d dialect) DropTable(manager  dsc.Manager, datastore string, table string)
 	return nil
 }
 
-func (d dialect) GetDatastores(manager  dsc.Manager) ([] string, error) {
+func (d dialect) GetDatastores(manager dsc.Manager) ([]string, error) {
 	config := manager.Config()
 	service, context, err := GetServiceAndContextForManager(manager)
 	if err != nil {
@@ -62,12 +62,12 @@ func (d dialect) GetDatastores(manager  dsc.Manager) ([] string, error) {
 	return result, nil
 }
 
-func (d dialect) GetCurrentDatastore(manager  dsc.Manager) (string, error) {
+func (d dialect) GetCurrentDatastore(manager dsc.Manager) (string, error) {
 	config := manager.Config()
 	return config.Get("datasetId"), nil
 }
 
-func (d dialect) GetTables(manager  dsc.Manager, datastore string) ([]string, error) {
+func (d dialect) GetTables(manager dsc.Manager, datastore string) ([]string, error) {
 	config := manager.Config()
 	service, context, err := GetServiceAndContextForManager(manager)
 	if err != nil {
@@ -106,7 +106,7 @@ func buildSchemaFields(fields []map[string]interface{}) ([]*bigquery.TableFieldS
 		if value, found := field["fields"]; found {
 			var subFields = make([]map[string]interface{}, 0)
 			toolbox.ProcessSlice(value, func(item interface{}) bool {
-				if mapValue, ok := item.(map[string]interface{});ok {
+				if mapValue, ok := item.(map[string]interface{}); ok {
 					subFields = append(subFields, mapValue)
 				}
 				return true
@@ -123,10 +123,9 @@ func buildSchemaFields(fields []map[string]interface{}) ([]*bigquery.TableFieldS
 
 }
 
-
 func tableSchema(descriptor *dsc.TableDescriptor) (*bigquery.TableSchema, error) {
 	schema := bigquery.TableSchema{}
-	if ! descriptor.HasSchema() {
+	if !descriptor.HasSchema() {
 		return nil, fmt.Errorf("Schema not defined on table %v", descriptor.Table)
 	}
 	if len(descriptor.SchemaURL) > 0 {
@@ -137,7 +136,7 @@ func tableSchema(descriptor *dsc.TableDescriptor) (*bigquery.TableSchema, error)
 		defer reader.Close()
 		err = json.NewDecoder(reader).Decode(&schema)
 		if err != nil {
-			return nil,fmt.Errorf("Failed to build decode schema for %v due to %v", descriptor.Table, err)
+			return nil, fmt.Errorf("Failed to build decode schema for %v due to %v", descriptor.Table, err)
 		}
 		if schema.Fields == nil || len(schema.Fields) == 0 {
 			return nil, fmt.Errorf("Invalid schema - no fields defined on %v", descriptor.Table)
@@ -152,7 +151,7 @@ func tableSchema(descriptor *dsc.TableDescriptor) (*bigquery.TableSchema, error)
 	return &schema, nil
 }
 
-func (d dialect)  CreateTable(manager  dsc.Manager, datastore string, tableName string, options string) (error) {
+func (d dialect) CreateTable(manager dsc.Manager, datastore string, tableName string, options string) error {
 	config := manager.Config()
 	projectID := config.Get("projectId")
 	service, context, err := GetServiceAndContextForManager(manager)
@@ -160,9 +159,9 @@ func (d dialect)  CreateTable(manager  dsc.Manager, datastore string, tableName 
 		return err
 	}
 	tableReference := &bigquery.TableReference{
-		ProjectId:projectID,
-		DatasetId:datastore,
-		TableId:tableName,
+		ProjectId: projectID,
+		DatasetId: datastore,
+		TableId:   tableName,
 	}
 	descriptor := manager.TableDescriptorRegistry().Get(tableName)
 	tableSchema, err := tableSchema(descriptor)
@@ -171,8 +170,8 @@ func (d dialect)  CreateTable(manager  dsc.Manager, datastore string, tableName 
 	}
 
 	table := &bigquery.Table{
-		TableReference:tableReference,
-		Schema:tableSchema,
+		TableReference: tableReference,
+		Schema:         tableSchema,
 	}
 	_, err = service.Tables.Insert(config.Get("projectId"), datastore, table).Context(context).Do()
 	if err != nil {
@@ -185,9 +184,6 @@ func (d dialect) CanPersistBatch() bool {
 	return true
 }
 
-
 func newDialect() dsc.DatastoreDialect {
 	return &dialect{dsc.NewDefaultDialect()}
 }
-
-
