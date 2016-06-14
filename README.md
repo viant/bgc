@@ -1,6 +1,7 @@
 # Datastore Connectivity for BigQuery (bgc)
 
 [![Datastore Connectivity library for BigQuery in Go.](https://goreportcard.com/badge/github.com/viant/bgc)](https://goreportcard.com/report/github.com/viant/bgc)
+[![GoDoc](https://godoc.org/github.com/viant/bgc?status.svg)](https://godoc.org/github.com/viant/bgc)
 
 This library is compatible with Go 1.5+
 
@@ -88,6 +89,9 @@ func main() {
 }
 ```
 
+## GoCover
+
+[![GoCover](https://gocover.io/github.com/viant/bgc)](https://gocover.io/github.com/viant/bgc)
 
 
 <a name="License"></a>
