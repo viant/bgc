@@ -96,7 +96,7 @@ type connectionProvider struct {
 }
 
 func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
-	config := cp.Provider.Config()
+	config := cp.ConnectionProvider.Config()
 	serviceAccountID := config.Get("serviceAccountId")
 	var privateKey []byte
 	if config.Has("privateKey") {
@@ -127,7 +127,7 @@ func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
 	}
 	var bigQueryConnection = &connection{service: service, context: &context}
 	var connection = bigQueryConnection
-	var super = dsc.NewAbstractConnection(config, cp.Provider.ConnectionPool(), connection)
+	var super = dsc.NewAbstractConnection(config, cp.ConnectionProvider.ConnectionPool(), connection)
 	bigQueryConnection.AbstractConnection = super
 	return connection, nil
 }
@@ -137,9 +137,9 @@ func newConnectionProvider(config *dsc.Config) dsc.ConnectionProvider {
 		config.MaxPoolSize = 1
 	}
 	aerospikeConnectionProvider := &connectionProvider{}
-	var self dsc.ConnectionProvider = aerospikeConnectionProvider
-	var super = dsc.NewAbstractConnectionProvider(config, make(chan dsc.Connection, config.MaxPoolSize), self)
+	var connectionProvider dsc.ConnectionProvider = aerospikeConnectionProvider
+	var super = dsc.NewAbstractConnectionProvider(config, make(chan dsc.Connection, config.MaxPoolSize), connectionProvider)
 	aerospikeConnectionProvider.AbstractConnectionProvider = super
-	aerospikeConnectionProvider.AbstractConnectionProvider.Provider = self
+	aerospikeConnectionProvider.AbstractConnectionProvider.ConnectionProvider = connectionProvider
 	return aerospikeConnectionProvider
 }
