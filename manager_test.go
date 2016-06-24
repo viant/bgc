@@ -29,7 +29,7 @@ import (
 )
 
 func GetManager(t *testing.T) dsc.Manager {
-	keyPath := dsunit.ExpandTestProtocolAsPathIfNeeded("test:///test/test_service.pem")
+	keyPath := "test:///test/test_service.pem"
 	config := dsc.NewConfig("bigquery", "",
 		"serviceAccountId:565950306583-hu98foqgnunu6a1a043plvl03ip60j5g@developer.gserviceaccount.com,privateKeyPath:"+keyPath+",projectId:spheric-arcadia-98015,datasetId:MyDataset,dateFormat:yyyy-MM-dd hh:mm:ss z")
 	factory := dsc.NewManagerFactory()
