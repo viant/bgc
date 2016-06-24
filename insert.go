@@ -16,6 +16,8 @@
  *  the License.
  *
  */
+
+//Package bgc - BigQuery streaming task
 package bgc
 
 import (

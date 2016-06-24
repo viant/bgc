@@ -16,6 +16,8 @@
  *  the License.
  *
  */
+
+//Package bgc - BigQuery datastore connection
 package bgc
 
 import (

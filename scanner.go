@@ -16,6 +16,8 @@
  *  the License.
  *
  */
+
+//Package bgc - BigQuery record scanner
 package bgc
 
 import (
@@ -32,7 +34,6 @@ type scanner struct {
 func (s *scanner) Columns() ([]string, error) {
 	return s.columns, nil
 }
-
 
 func (s *scanner) Scan(destinations ...interface{}) error {
 
@@ -51,6 +52,5 @@ func (s *scanner) Scan(destinations ...interface{}) error {
 
 func newScaner(config *dsc.Config) *scanner {
 	converter := toolbox.NewColumnConverter(config.GetDateLayout())
-	return &scanner{converter:*converter,}
+	return &scanner{converter: *converter}
 }
-

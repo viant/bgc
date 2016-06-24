@@ -16,6 +16,8 @@
  *  the License.
  *
  */
+
+//Package bgc - Datastore connectivity factory and dialect registry
 package bgc
 
 import (
