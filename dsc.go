@@ -6,7 +6,7 @@ import (
 
 func register() {
 	dsc.RegisterManagerFactory("bigquery", newManagerFactory())
-	dsc.RegisterDatastoreDialectable("bigquery", newDialect())
+	dsc.RegisterDatastoreDialect("bigquery", newDialect())
 }
 
 func init() {
