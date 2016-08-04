@@ -1,6 +1,7 @@
 package bgc
 
 import (
+	"encoding/json"
 	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
 )
@@ -24,6 +25,11 @@ func (f managerFactory) CreateFromURL(url string) (dsc.Manager, error) {
 	}
 	defer reader.Close()
 	config := &dsc.Config{}
+	err = json.NewDecoder(reader).Decode(config)
+	if err != nil {
+		return nil, err
+	}
+	config.Init()
 	return f.Create(config)
 }
 

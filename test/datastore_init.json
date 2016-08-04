@@ -78,6 +78,20 @@
             "id"
           ],
           "SchemaUrl": "test:///test/traveler_schema.json"
+        },
+        {
+          "Table": "travelers4",
+          "PkColumns": [
+            "id"
+          ],
+          "SchemaUrl": "test:///test/traveler_schema.json"
+        },
+        {
+          "Table": "travelers5",
+          "PkColumns": [
+            "id"
+          ],
+          "SchemaUrl": "test:///test/traveler_schema.json"
         }
       ]
     }

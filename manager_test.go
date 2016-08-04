@@ -21,6 +21,9 @@ func GetManager(t *testing.T) dsc.Manager {
 		t.Fatalf("Failed to create manager %v", err)
 	}
 	manager.TableDescriptorRegistry().Register(&dsc.TableDescriptor{Table: "travelers3", PkColumns: []string{"id"}, SchemaURL: "some_url"})
+	manager.TableDescriptorRegistry().Register(&dsc.TableDescriptor{Table: "travelers4", PkColumns: []string{"id"}, SchemaURL: "some_url"})
+	manager.TableDescriptorRegistry().Register(&dsc.TableDescriptor{Table: "travelers5", PkColumns: []string{"id"}, SchemaURL: "some_url"})
+	manager.TableDescriptorRegistry().Register(&dsc.TableDescriptor{Table: "abc", PkColumns: []string{"id"}, SchemaURL: "some_url"})
 	return manager
 }
 
@@ -112,4 +115,67 @@ func TestPersistAll(t *testing.T) {
 	assert.Equal(t, 0, updated)
 
 	dsunit.ExpectDatasetFor(t, "MyDataset", dsunit.FullTableDatasetCheckPolicy, "test://test/", "PersistAll")
+}
+
+func TestExecuteOnConnection(t *testing.T) {
+	manager := GetManager(t)
+	connetion, err := manager.ConnectionProvider().Get()
+	assert.Nil(t, err)
+	defer connetion.Close()
+	result, err := manager.ExecuteOnConnection(connetion, "INSERT INTO travelers4(id, name) VALUES(?, ?)", []interface{}{20, "Traveler20"})
+	assert.Nil(t, err)
+	rowsAdded, err := result.RowsAffected()
+	assert.Nil(t, err)
+	assert.EqualValues(t, 1, rowsAdded)
+
+	//Test error due to unknown table
+	_, err = manager.ExecuteOnConnection(connetion, "INSERT INTO abc(id, name) VALUES(?, ?)", []interface{}{20, "Traveler20"})
+	assert.NotNil(t, err)
+	_, err = manager.ExecuteOnConnection(connetion, "UPDATE abc SET name = ? WHERE id = ?", []interface{}{"Traveler20", 20})
+	assert.NotNil(t, err)
+}
+
+func TestPersistAllOnConnection(t *testing.T) {
+	manager := GetManager(t)
+	connetion, err := manager.ConnectionProvider().Get()
+	assert.Nil(t, err)
+	defer connetion.Close()
+
+	var travelers = make([]Traveler, 2)
+
+	travelers[0] = Traveler{
+		Id:            10,
+		Name:          "Cook",
+		LastVisitTime: time.Now(),
+		Achievements:  []string{"abc", "jhi"},
+		MostLikedCity: MostLikedCity{City: "Cracow", Visits: 4},
+	}
+
+	travelers[1] = Traveler{
+		Id:            20,
+		Name:          "Robin",
+		LastVisitTime: time.Now(),
+		Achievements:  []string{"w", "a"},
+		MostLikedCity: MostLikedCity{"Moscow", 3, []string{"s3", "sN"}},
+	}
+
+	inserted, _, err := manager.PersistAllOnConnection(connetion, &travelers, "travelers5", nil)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, inserted)
+
+	//updated not supported
+	_, _, err = manager.PersistAllOnConnection(connetion, &travelers, "travelers5", nil)
+	assert.NotNil(t, err)
+
+	//Test error due to unknown table
+	_, _, err = manager.PersistAllOnConnection(connetion, &travelers, "travelers5", nil)
+	assert.NotNil(t, err)
+}
+
+func TestCreateFromURL(t *testing.T) {
+	factory := dsc.NewManagerFactory()
+	url := dsunit.ExpandTestProtocolAsURLIfNeeded("test:///test/config/store.json")
+	manager, err := factory.CreateFromURL(url)
+	assert.Nil(t, err)
+	assert.NotNil(t, manager)
 }
