@@ -106,8 +106,8 @@ func tableSchema(descriptor *dsc.TableDescriptor) (*bigquery.TableSchema, error)
 	if !descriptor.HasSchema() {
 		return nil, fmt.Errorf("Schema not defined on table %v", descriptor.Table)
 	}
-	if len(descriptor.SchemaURL) > 0 {
-		reader, _, err := toolbox.OpenReaderFromURL(descriptor.SchemaURL)
+	if len(descriptor.SchemaUrl) > 0 {
+		reader, _, err := toolbox.OpenReaderFromURL(descriptor.SchemaUrl)
 		if err != nil {
 			return nil, err
 		}

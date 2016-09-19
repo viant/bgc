@@ -20,10 +20,10 @@ func GetManager(t *testing.T) dsc.Manager {
 	if err != nil {
 		t.Fatalf("Failed to create manager %v", err)
 	}
-	manager.TableDescriptorRegistry().Register(&dsc.TableDescriptor{Table: "travelers3", PkColumns: []string{"id"}, SchemaURL: "some_url"})
-	manager.TableDescriptorRegistry().Register(&dsc.TableDescriptor{Table: "travelers4", PkColumns: []string{"id"}, SchemaURL: "some_url"})
-	manager.TableDescriptorRegistry().Register(&dsc.TableDescriptor{Table: "travelers5", PkColumns: []string{"id"}, SchemaURL: "some_url"})
-	manager.TableDescriptorRegistry().Register(&dsc.TableDescriptor{Table: "abc", PkColumns: []string{"id"}, SchemaURL: "some_url"})
+	manager.TableDescriptorRegistry().Register(&dsc.TableDescriptor{Table: "travelers3", PkColumns: []string{"id"}, SchemaUrl: "some_url"})
+	manager.TableDescriptorRegistry().Register(&dsc.TableDescriptor{Table: "travelers4", PkColumns: []string{"id"}, SchemaUrl: "some_url"})
+	manager.TableDescriptorRegistry().Register(&dsc.TableDescriptor{Table: "travelers5", PkColumns: []string{"id"}, SchemaUrl: "some_url"})
+	manager.TableDescriptorRegistry().Register(&dsc.TableDescriptor{Table: "abc", PkColumns: []string{"id"}, SchemaUrl: "some_url"})
 	return manager
 }
 
