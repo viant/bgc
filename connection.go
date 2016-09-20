@@ -11,6 +11,7 @@ import (
 	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
 	"google.golang.org/api/bigquery/v2"
+	"os"
 )
 
 var bigQueryScope = "https://www.googleapis.com/auth/bigquery"
@@ -88,7 +89,8 @@ func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
 		privateKeyPath := config.Get("privateKeyPath")
 		privateKey, err = ioutil.ReadFile(privateKeyPath)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create bigquery connection - unable to read private key from path %v, %v", privateKeyPath, err)
+			hostname, _:= os.Hostname()
+			return nil, fmt.Errorf("Failed to create bigquery connection - unable to read private key from path %v:%v,  %v", hostname, privateKeyPath, err)
 		}
 
 	}
