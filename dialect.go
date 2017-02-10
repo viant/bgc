@@ -6,7 +6,10 @@ import (
 	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
 	"google.golang.org/api/bigquery/v2"
+	"strconv"
 )
+
+const sequenceSQL = "SELECT COUNT(*) AS cnt FROM %v"
 
 type dialect struct{ dsc.DatastoreDialect }
 
@@ -45,13 +48,31 @@ func (d dialect) GetCurrentDatastore(manager dsc.Manager) (string, error) {
 	return config.Get("datasetId"), nil
 }
 
+//GetSequence returns sequence value or error for passed in manager and table/sequence
+func (d dialect) GetSequence(manager dsc.Manager, name string) (int64, error) {
+	var result = make([]interface{}, 0)
+	success, err := manager.ReadSingle(&result, fmt.Sprintf(sequenceSQL, name), []interface{}{}, nil)
+	if err != nil || !success {
+		return 0, err
+	}
+	count, _ := strconv.ParseInt(result[0].(string), 10, 64)
+	seq := count + 1
+	return seq, nil
+}
+
 func (d dialect) GetTables(manager dsc.Manager, datastore string) ([]string, error) {
 	config := manager.Config()
 	service, context, err := GetServiceAndContextForManager(manager)
 	if err != nil {
 		return nil, err
 	}
-	response, err := service.Tables.List(config.Get("projectId"), datastore).Context(context).Do()
+
+	call := service.Tables.List(config.Get("projectId"), datastore).Context(context)
+	if manager.Config().Has("maxResults") {
+		maxResults := toolbox.AsInt(manager.Config().Get("maxResults"))
+		call.MaxResults(int64(maxResults))
+	}
+ 	response, err := call.Do()
 	if err != nil {
 		return nil, err
 	}
