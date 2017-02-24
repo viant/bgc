@@ -37,7 +37,7 @@ func asContext(wrapped interface{}) (*context.Context, error) {
 }
 
 type connection struct {
-	dsc.AbstractConnection
+	*dsc.AbstractConnection
 	service *bigquery.Service
 	context *context.Context
 }
@@ -75,7 +75,7 @@ func (c *connection) Rollback() error {
 }
 
 type connectionProvider struct {
-	dsc.AbstractConnectionProvider
+	*dsc.AbstractConnectionProvider
 }
 
 func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
