@@ -9,6 +9,7 @@ import (
 	"github.com/viant/toolbox"
 	"golang.org/x/net/context"
 	"google.golang.org/api/bigquery/v2"
+	"fmt"
 )
 
 var useLegacySQL = "/* USE LEGACY SQL */"
@@ -45,12 +46,11 @@ func unwrapValueIfNeeded(value interface{}, field *bigquery.TableFieldSchema) in
 			}
 			return wrappedValue
 		}
+
 		if fieldValue, ok := fieldMap["f"]; ok {
-			unwrapped := unwrapValueIfNeeded(fieldValue, field)
 			if field.Fields != nil {
-				index := 0
 				var newMap = make(map[string]interface{})
-				toolbox.ProcessSlice(unwrapped, func(item interface{}) bool {
+				toolbox.ProcessSliceWithIndex(fieldValue, func(index int, item interface{}) bool {
 					newMapValue := unwrapValueIfNeeded(item, field.Fields[index])
 					newMap[field.Fields[index].Name] = newMapValue
 					index++
@@ -59,6 +59,8 @@ func unwrapValueIfNeeded(value interface{}, field *bigquery.TableFieldSchema) in
 				return newMap
 			}
 		}
+
+		panic("Should not be here " + fmt.Sprintf("%v", value))
 	}
 	if slice, ok := value.([]interface{}); ok {
 		var newSlice = make([]interface{}, 0)
