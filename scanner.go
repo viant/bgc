@@ -16,19 +16,6 @@ func (s *scanner) Columns() ([]string, error) {
 }
 
 func (s *scanner) Scan(destinations ...interface{}) error {
-	if len(destinations) == 1 {
-		if aMap, ok := destinations[0].(map[string]interface{}); ok {
-			for i, column := range s.columns {
-				aMap[column] = s.Values[i]
-			}
-		}
-		if aMap, ok := destinations[0].(*map[string]interface{}); ok {
-			for i, column := range s.columns {
-				(*aMap)[column] = s.Values[i]
-			}
-		}
-		return nil;
-	}
 	for i, dest := range destinations {
 		value := s.Values[i]
 		if dest == nil {
@@ -44,5 +31,5 @@ func (s *scanner) Scan(destinations ...interface{}) error {
 
 func newScaner(config *dsc.Config) *scanner {
 	converter := toolbox.NewColumnConverter(config.GetDateLayout())
-	return &scanner{converter: *converter}
+	return dsc.NewScanner(&scanner{converter: *converter})
 }
