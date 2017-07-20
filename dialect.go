@@ -68,18 +68,31 @@ func (d dialect) GetTables(manager dsc.Manager, datastore string) ([]string, err
 	}
 
 	call := service.Tables.List(config.Get("projectId"), datastore).Context(context)
-	if manager.Config().Has("maxResults") {
-		maxResults := toolbox.AsInt(manager.Config().Get("maxResults"))
-		call.MaxResults(int64(maxResults))
-	}
- 	response, err := call.Do()
-	if err != nil {
-		return nil, err
-	}
-	var result = make([]string, 0)
-	for _, table := range response.Tables {
 
-		result = append(result, table.TableReference.TableId)
+	pageToken := ""
+	var result = make([]string, 0)
+	for {
+		if manager.Config().Has("maxResults") {
+			maxResults := toolbox.AsInt(manager.Config().Get("maxResults"))
+			call.MaxResults(int64(maxResults))
+
+		}
+		if pageToken != "" {
+			call.PageToken(pageToken)
+		}
+		response, err := call.Do()
+		if err != nil {
+			return nil, err
+		}
+		for _, table := range response.Tables {
+			result = append(result, table.TableReference.TableId)
+		}
+		if response.NextPageToken != "" {
+			pageToken = response.NextPageToken
+		} else {
+			break
+		}
+
 	}
 	return result, nil
 }
