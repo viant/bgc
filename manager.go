@@ -23,8 +23,10 @@ type manager struct {
 
 func (m *manager) PersistAllOnConnection(connection dsc.Connection, dataPointer interface{}, table string, provider dsc.DmlProvider) (inserted int, updated int, err error) {
 	toolbox.AssertKind(dataPointer, reflect.Ptr, "dataPointer")
-	provider = dsc.NewDmlProviderIfNeeded(provider, table, reflect.TypeOf(dataPointer).Elem())
-
+	provider,err = dsc.NewDmlProviderIfNeeded(provider, table, reflect.TypeOf(dataPointer).Elem())
+	if err != nil {
+		return 0, 0, err
+	}
 	insertables, updatables, err := m.ClassifyDataAsInsertableOrUpdatable(connection, dataPointer, table, provider)
 	if err != nil {
 		return 0, 0, fmt.Errorf("Failed to persist data unable to classify as insertable or updatable %v", err)
