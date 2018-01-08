@@ -76,41 +76,41 @@ func main() {
                 "credentialsFile":path.Join(os.Getenv("HOME"), ".secret/bq.json"),
                 "dateFormat":"yyyy-MM-dd hh:mm:ss z",
     })
-      	if err != nil {
-       		log.Fatal(err)
-       	}
+
+    if err != nil {
+        log.Fatal(err)
+    }
 
 		
-		
-		factory := dsc.NewManagerFactory()
-    	manager, err := factory.Create(config)
-    	if err != nil {
-    		t.Fatalf("Failed to create manager %v", err)
-    	}
+    factory := dsc.NewManagerFactory()
+    manager, err := factory.Create(config)
+    if err != nil {
+        t.Fatalf("Failed to create manager %v", err)
+    }
     	// manager := factory.CreateFromURL("file:///etc/myapp/datastore.json")
     	
-    	manager.TableDescriptorRegistry().Register(&dsc.TableDescriptor{Table:"travelers3", PkColumns:[]string{"id"}, SchemaUrl:"some_url"})
+    manager.TableDescriptorRegistry().Register(&dsc.TableDescriptor{Table:"travelers3", PkColumns:[]string{"id"}, SchemaUrl:"some_url"})
 
 
-        traveler := Traveler{}
-        success, err := manager.ReadSingle(&traveler, " SELECT id, name, lastVisitTime, visitedCities, achievements, mostLikedCity FROM travelers WHERE id = ?", []interface{}{4}, nil)
-        if err != nil {
-            panic(err.Error())
-	    }
+    traveler := Traveler{}
+    success, err := manager.ReadSingle(&traveler, " SELECT id, name, lastVisitTime, visitedCities, achievements, mostLikedCity FROM travelers WHERE id = ?", []interface{}{4}, nil)
+    if err != nil {
+        panic(err.Error())
+    }
 
-        var travelers :=  make([]Traveler, 0)
-        err:= manager.ReadAll(&interest, "SELECT iid, name, lastVisitTime, visitedCities, achievements, mostLikedCity",nil, nil)
-	    if err != nil {
-            panic(err.Error())
-	    }
+    var travelers :=  make([]Traveler, 0)
+    err:= manager.ReadAll(&interest, "SELECT iid, name, lastVisitTime, visitedCities, achievements, mostLikedCity",nil, nil)
+    if err != nil {
+        panic(err.Error())
+    }
 
-        ...
-   
-        inserted, updated, err := manager.PersistAll(&travelers, "travelers", nil)
-        if err != nil {
-               panic(err.Error())
-   	    }
-        ...
+    ...
+
+    inserted, updated, err := manager.PersistAll(&travelers, "travelers", nil)
+    if err != nil {
+           panic(err.Error())
+    }
+    ...
         
 }
 ```
