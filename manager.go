@@ -23,13 +23,13 @@ type manager struct {
 
 func (m *manager) PersistAllOnConnection(connection dsc.Connection, dataPointer interface{}, table string, provider dsc.DmlProvider) (inserted int, updated int, err error) {
 	toolbox.AssertKind(dataPointer, reflect.Ptr, "dataPointer")
-	provider,err = dsc.NewDmlProviderIfNeeded(provider, table, reflect.TypeOf(dataPointer).Elem())
+	provider, err = dsc.NewDmlProviderIfNeeded(provider, table, reflect.TypeOf(dataPointer).Elem())
 	if err != nil {
 		return 0, 0, err
 	}
 	insertables, updatables, err := m.ClassifyDataAsInsertableOrUpdatable(connection, dataPointer, table, provider)
 	if err != nil {
-		return 0, 0, fmt.Errorf("Failed to persist data unable to classify as insertable or updatable %v", err)
+		return 0, 0, fmt.Errorf("failed to persist data unable to classify as insertable or updatable %v", err)
 	}
 	if len(updatables) > 0 {
 		return 0, 0, fmt.Errorf("Update is not supproted")
@@ -51,11 +51,11 @@ func (m *manager) PersistAllOnConnection(connection dsc.Connection, dataPointer 
 	tableDescriptor := m.TableDescriptorRegistry().Get(table)
 	task, err := NewInsertTask(m.Manager, tableDescriptor, true)
 	if err != nil {
-		return 0, 0, fmt.Errorf("Failed to prepare insert task on %v, due to %v", table, err)
+		return 0, 0, fmt.Errorf("failed to prepare insert task on %v, due to %v", table, err)
 	}
 	inserted, err = task.InsertAll(rows)
 	if err != nil {
-		return 0, 0, fmt.Errorf("Failed to insert data on %v, due to %v", table, err)
+		return 0, 0, fmt.Errorf("failed to insert data on %v, due to %v", table, err)
 	}
 	return inserted, 0, nil
 }
@@ -71,16 +71,16 @@ func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sql
 		parameters := toolbox.NewSliceIterator(sqlParameters)
 		values, err := statement.ColumnValueMap(parameters)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to prepare insert data due to %v", err)
+			return nil, fmt.Errorf("failed to prepare insert data due to %v", err)
 		}
 		tableDescriptor := m.TableDescriptorRegistry().Get(statement.Table)
 		task, err := NewInsertTask(m.Manager, tableDescriptor, true)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to prepare insert task on %v, due to %v", statement.Table, err)
+			return nil, fmt.Errorf("failed to prepare insert task on %v, due to %v", statement.Table, err)
 		}
 		err = task.InsertSingle(values)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to insert data on %v, due to %v", statement.Table, err)
+			return nil, fmt.Errorf("failed to insert data on %v, due to %v", statement.Table, err)
 		}
 		return dsc.NewSQLResult(int64(1), int64(0)), nil
 
@@ -93,7 +93,7 @@ func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sq
 	sql = m.ExpandSQL(sql, args)
 	iterator, err := NewQueryIterator(m.Manager, sql)
 	if err != nil {
-		return fmt.Errorf("Failed to get new query iterator %v %v", sql, err)
+		return fmt.Errorf("failed to get new query iterator %v %v", sql, err)
 	}
 	var biqQueryScanner *scanner
 
@@ -102,20 +102,20 @@ func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sq
 			biqQueryScanner = newScaner(m.Config())
 			columns, err := iterator.GetColumns()
 			if err != nil {
-				return fmt.Errorf("Failed to read bigquery %v - unable to read query schema due to:\n\t%v", sql, err)
+				return fmt.Errorf("failed to read bigquery %v - unable to read query schema due to:\n\t%v", sql, err)
 			}
 			biqQueryScanner.columns = columns
 		}
 		values, err := iterator.Next()
 		if err != nil {
-			return fmt.Errorf("Failed to read bigquery %v - unable to fetch values due to:\n\t%v", sql, err)
+			return fmt.Errorf("failed to read bigquery %v - unable to fetch values due to:\n\t%v", sql, err)
 		}
 		biqQueryScanner.Values = values
 		var scanner dsc.Scanner = biqQueryScanner
 		toContinue, err := readingHandler(scanner)
 
 		if err != nil {
-			return fmt.Errorf("Failed to read bigquery %v - unable to map recrod %v", sql, err)
+			return fmt.Errorf("failed to read bigquery %v - unable to map recrod %v", sql, err)
 		}
 		if !toContinue {
 			break
@@ -127,7 +127,7 @@ func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sq
 func newConfig(cfg *dsc.Config) *config {
 	return &config{
 		Config:    cfg,
-		projectID: cfg.Get("projectId"),
-		datasetID: cfg.Get("datasetId"),
+		projectID: cfg.Get(ProjectIDKey),
+		datasetID: cfg.Get(DataSetIDKey),
 	}
 }

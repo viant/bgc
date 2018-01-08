@@ -2,6 +2,7 @@ package bgc
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
 )
@@ -14,6 +15,13 @@ func (f *managerFactory) Create(config *dsc.Config) (dsc.Manager, error) {
 	var self dsc.Manager = manager
 	super := dsc.NewAbstractManager(config, connectionProvider, self)
 	manager.AbstractManager = super
+
+	for _, key := range []string{ProjectIDKey, DataSetIDKey} {
+		if !config.Has(key) {
+			return nil, fmt.Errorf("config.parameters.%v was missing", key)
+		}
+	}
+
 	manager.bigQueryConfig = newConfig(config)
 	return self, nil
 }

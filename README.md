@@ -55,8 +55,34 @@ type  Traveler struct {
 
 func main() {
 
-		config := dsc.NewConfig("bigquery", "", "serviceAccountId:***@developer.gserviceaccount.com,privateKeyPath:/etc/test_service.pem,projectId:spheric-arcadia-98015,datasetId:MyDataset,dateFormat:yyyy-MM-dd hh:mm:ss z")
-    	factory := dsc.NewManagerFactory()
+		config, err := dsc.NewConfigWithParameters("bigquery", "",
+                		map[string]string{
+                			"serviceAccountId":"***@developer.gserviceaccount.com",
+                			"datasetId":"MyDataset",
+                			"projectId":"spheric-arcadia-98015",
+                			"privateKeyPath":path.Join(os.Getenv("HOME"), ".secret/bq.pem"),
+                			"dateFormat":"yyyy-MM-dd hh:mm:ss z",
+                		})
+        if err != nil {
+            log.Fatal(err)
+        }
+		
+		//or with secret credentails file
+		
+		config, err = dsc.NewConfigWithParameters("bigquery", "",
+        		map[string]string{
+        			"datasetId":"MyDataset",
+        			"credentialsFile":path.Join(os.Getenv("HOME"), ".secret/bq.json"),
+        			"dateFormat":"yyyy-MM-dd hh:mm:ss z",
+        
+        		})
+      	if err != nil {
+       		log.Fatal(err)
+       	}
+
+		
+		
+		factory := dsc.NewManagerFactory()
     	manager, err := factory.Create(config)
     	if err != nil {
     		t.Fatalf("Failed to create manager %v", err)

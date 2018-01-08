@@ -19,7 +19,7 @@ func (d dialect) DropTable(manager dsc.Manager, datastore string, table string) 
 	if err != nil {
 		return err
 	}
-	err = service.Tables.Delete(config.Get("projectId"), datastore, table).Context(context).Do()
+	err = service.Tables.Delete(config.Get(ProjectIDKey), datastore, table).Context(context).Do()
 	if err != nil {
 		return err
 	}
@@ -32,7 +32,7 @@ func (d dialect) GetDatastores(manager dsc.Manager) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	response, err := service.Datasets.List(config.Get("projectId")).Context(context).Do()
+	response, err := service.Datasets.List(config.Get(ProjectIDKey)).Context(context).Do()
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (d dialect) GetTables(manager dsc.Manager, datastore string) ([]string, err
 		return nil, err
 	}
 
-	call := service.Tables.List(config.Get("projectId"), datastore).Context(context)
+	call := service.Tables.List(config.Get(ProjectIDKey), datastore).Context(context)
 
 	pageToken := ""
 	var result = make([]string, 0)
@@ -165,7 +165,7 @@ func tableSchema(descriptor *dsc.TableDescriptor) (*bigquery.TableSchema, error)
 
 func (d dialect) CreateTable(manager dsc.Manager, datastore string, tableName string, options string) error {
 	config := manager.Config()
-	projectID := config.Get("projectId")
+	projectID := config.Get(ProjectIDKey)
 	service, context, err := GetServiceAndContextForManager(manager)
 	if err != nil {
 		return err
@@ -185,7 +185,7 @@ func (d dialect) CreateTable(manager dsc.Manager, datastore string, tableName st
 		TableReference: tableReference,
 		Schema:         tableSchema,
 	}
-	_, err = service.Tables.Insert(config.Get("projectId"), datastore, table).Context(context).Do()
+	_, err = service.Tables.Insert(config.Get(ProjectIDKey), datastore, table).Context(context).Do()
 	if err != nil {
 		return err
 	}

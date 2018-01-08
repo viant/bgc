@@ -5,11 +5,11 @@ import (
 	"strings"
 	"time"
 
+	"fmt"
 	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
 	"golang.org/x/net/context"
 	"google.golang.org/api/bigquery/v2"
-	"fmt"
 )
 
 var useLegacySQL = "/* USE LEGACY SQL */"

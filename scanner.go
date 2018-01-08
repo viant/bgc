@@ -21,13 +21,13 @@ func (s *scanner) Scan(destinations ...interface{}) error {
 			for i, column := range s.columns {
 				aMap[column] = s.Values[i]
 			}
-			return nil;
+			return nil
 		}
 		if aMap, ok := destinations[0].(*map[string]interface{}); ok {
 			for i, column := range s.columns {
 				(*aMap)[column] = s.Values[i]
 			}
-			return nil;
+			return nil
 		}
 
 	}
