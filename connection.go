@@ -19,12 +19,12 @@ var bigQueryScope = "https://www.googleapis.com/auth/bigquery"
 var bigQueryInsertScope = "https://www.googleapis.com/auth/bigquery.insertdata"
 
 const (
-	CredentialsFileKey = "credentialsFile"
-	ServiceAccountId   = "serviceAccountIdKey"
-	PrivateKey         = "privateKey"
-	PrivateKeyPathKey  = "privateKeyPath"
-	ProjectIDKey       = "projectId"
-	DataSetIDKey       = "datasetId"
+	CredentialsFileKey  = "credentialsFile"
+	ServiceAccountIdKey = "serviceAccountId"
+	PrivateKey          = "privateKey"
+	PrivateKeyPathKey   = "privateKeyPath"
+	ProjectIDKey        = "projectId"
+	DataSetIDKey        = "datasetId"
 )
 
 var servicePointer = (*bigquery.Service)(nil)
@@ -101,7 +101,7 @@ func (cp *connectionProvider) newAuthConfigWithCredentialsFile() (*jwt.Config, e
 
 func (cp *connectionProvider) newAuthConfig() (*jwt.Config, error) {
 	config := cp.Config()
-	serviceAccountID := config.Get(ServiceAccountId)
+	serviceAccountID := config.Get(ServiceAccountIdKey)
 	var privateKey []byte
 	if config.Has(PrivateKey) {
 		privateKey = []byte(config.Get(PrivateKey))
