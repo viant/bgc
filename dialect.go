@@ -1,12 +1,12 @@
 package bgc
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
 	"google.golang.org/api/bigquery/v2"
 	"strconv"
+	"github.com/viant/toolbox/url"
 )
 
 const sequenceSQL = "SELECT COUNT(*) AS cnt FROM %v"
@@ -141,12 +141,9 @@ func tableSchema(descriptor *dsc.TableDescriptor) (*bigquery.TableSchema, error)
 		return nil, fmt.Errorf("Schema not defined on table %v", descriptor.Table)
 	}
 	if len(descriptor.SchemaUrl) > 0 {
-		reader, _, err := toolbox.OpenReaderFromURL(descriptor.SchemaUrl)
-		if err != nil {
-			return nil, err
-		}
-		defer reader.Close()
-		err = json.NewDecoder(reader).Decode(&schema)
+
+		resource := url.NewResource(descriptor.SchemaUrl)
+		err := resource.JSONDecode(&schema)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to build decode schema for %v due to %v", descriptor.Table, err)
 		}
