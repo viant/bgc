@@ -70,10 +70,10 @@ func main() {
     //or with secret credentails file
     
     config, err = dsc.NewConfigWithParameters("bigquery", "",
+    	    path.Join(os.Getenv("HOME"), ".secret/bq.json"),
             map[string]string{
                 "projectId":"spheric-arcadia-98015",
                 "datasetId":"MyDataset",
-                "credentialsFile":path.Join(os.Getenv("HOME"), ".secret/bq.json"),
                 "dateFormat":"yyyy-MM-dd hh:mm:ss z",
     })
 
