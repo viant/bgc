@@ -19,7 +19,6 @@ var bigQueryScope = "https://www.googleapis.com/auth/bigquery"
 var bigQueryInsertScope = "https://www.googleapis.com/auth/bigquery.insertdata"
 
 const (
-	CredentialsFileKey  = "credentialsFile"
 	ServiceAccountIdKey = "serviceAccountId"
 	PrivateKey          = "privateKey"
 	PrivateKeyPathKey   = "privateKeyPath"
@@ -89,7 +88,7 @@ type connectionProvider struct {
 }
 
 func (cp *connectionProvider) newAuthConfigWithCredentialsFile() (*jwt.Config, error) {
-	var credentialsFile = cp.Config().Get(CredentialsFileKey)
+	var credentialsFile = cp.Config().Credential
 	resource := url.NewResource(credentialsFile)
 	config := &Credential{}
 	err := resource.JSONDecode(config)
@@ -128,7 +127,7 @@ func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
 	config := cp.ConnectionProvider.Config()
 	var err error
 	var authConfig *jwt.Config
-	if config.Has(CredentialsFileKey) {
+	if config.Credential != "" {
 		authConfig, err = cp.newAuthConfigWithCredentialsFile()
 	} else {
 		authConfig, err = cp.newAuthConfig()
