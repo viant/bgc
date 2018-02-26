@@ -49,7 +49,7 @@ package bgc_test
 //func TestReadSingle(t *testing.T) {
 //
 //	dsunit.InitDatastoreFromURL(t, "test://test/init.json")
-//	dsunit.PrepareDatastoreFor(t, "MyDataset", "test://test/", "ReadSingle")
+//	dsunit.PrepareFor(t, "MyDataset", "test://test/", "ReadSingle")
 //
 //	manager := GetManager(t)
 //	traveler := Traveler{}
@@ -70,7 +70,7 @@ package bgc_test
 //
 //func TestReadAll(t *testing.T) {
 //	dsunit.InitDatastoreFromURL(t, "test://test/init.json")
-//	dsunit.PrepareDatastoreFor(t, "MyDataset", "test://test/", "ReadAll")
+//	dsunit.PrepareFor(t, "MyDataset", "test://test/", "ReadAll")
 //
 //	manager := GetManager(t)
 //	var travelers = make([]Traveler, 0)
@@ -115,7 +115,7 @@ package bgc_test
 //	assert.Equal(t, 2, inserted)
 //	assert.Equal(t, 0, updated)
 //
-//	dsunit.ExpectDatasetFor(t, "MyDataset", dsunit.FullTableDatasetCheckPolicy, "test://test/", "PersistAll")
+//	dsunit.ExpectFor(t, "MyDataset", dsunit.FullTableDatasetCheckPolicy, "test://test/", "PersistAll")
 //}
 //
 //func TestExecuteOnConnection(t *testing.T) {
