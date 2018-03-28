@@ -88,10 +88,10 @@ type connectionProvider struct {
 }
 
 func (cp *connectionProvider) newAuthConfigWithCredentialsFile() (*jwt.Config, error) {
-	var credentialsFile = cp.Config().Credential
+	var credentialsFile = cp.Config().Credentials
 	resource := url.NewResource(credentialsFile)
 	config := &Credential{}
-	err := resource.JSONDecode(config)
+	err := resource.Decode(config)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
 	config := cp.ConnectionProvider.Config()
 	var err error
 	var authConfig *jwt.Config
-	if config.Credential != "" {
+	if config.Credentials != "" {
 		authConfig, err = cp.newAuthConfigWithCredentialsFile()
 	} else {
 		authConfig, err = cp.newAuthConfig()

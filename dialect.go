@@ -143,7 +143,7 @@ func tableSchema(descriptor *dsc.TableDescriptor) (*bigquery.TableSchema, error)
 	if len(descriptor.SchemaUrl) > 0 {
 
 		resource := url.NewResource(descriptor.SchemaUrl)
-		err := resource.JSONDecode(&schema)
+		err := resource.Decode(&schema)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to build decode schema for %v due to %v", descriptor.Table, err)
 		}
