@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"reflect"
-
 	"github.com/viant/dsc"
-	"github.com/viant/toolbox/url"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
 	"google.golang.org/api/bigquery/v2"
 	"os"
+	"github.com/viant/toolbox/secret"
 )
 
 var bigQueryScope = "https://www.googleapis.com/auth/bigquery"
@@ -88,14 +87,11 @@ type connectionProvider struct {
 }
 
 func (cp *connectionProvider) newAuthConfigWithCredentialsFile() (*jwt.Config, error) {
-	var credentialsFile = cp.Config().Credentials
-	resource := url.NewResource(credentialsFile)
-	config := &Credential{}
-	err := resource.Decode(config)
+	config, err := secret.New("", false).GetCredentials(cp.Config().Credentials)
 	if err != nil {
 		return nil, err
 	}
-	return config.AsJwtConfig(bigQueryScope, bigQueryInsertScope), nil
+	return config.NewJWTConfig(bigQueryScope, bigQueryInsertScope)
 }
 
 func (cp *connectionProvider) newAuthConfig() (*jwt.Config, error) {
@@ -136,6 +132,8 @@ func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
 	if err != nil {
 		return nil, err
 	}
+
+
 
 	ctx := context.Background()
 	oauthClient := oauth2.NewClient(ctx, authConfig.TokenSource(ctx))
