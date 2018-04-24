@@ -165,7 +165,8 @@ func NewQueryIterator(manager dsc.Manager, query string) (*QueryIterator, error)
 	}
 
 	if !useLegacySQL {
-		jobConfigurationQuery.UseLegacySql = false
+		falseValue := false
+		jobConfigurationQuery.UseLegacySql = &falseValue
 		jobConfigurationQuery.ForceSendFields = []string{"UseLegacySql"}
 	}
 
