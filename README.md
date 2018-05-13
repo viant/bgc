@@ -18,7 +18,7 @@ This library uses SQL mode and streaming API to insert data as default.
 To use legacy SQL please use the following /* USE LEGACY SQL */ hint, in this case you will not be able to fetch repeated and nested fields.
 To control insert method just provide config.parameters with the following value:
     
-    _**table_name**_.insertMethod = "load"
+    _table_name_.insertMethod = "load"
 
 Note that if streaming is used, currently UPDATE and DELETE statements are not supported.
 
