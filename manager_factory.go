@@ -13,7 +13,7 @@ func (f *managerFactory) configInit(config *dsc.Config) error {
 		secrets := secret.New("", false)
 		credentials, err := secrets.GetCredentials(config.Credentials)
 		if err != nil {
-			return  err
+			return err
 		}
 		if !config.Has(ProjectIDKey) {
 			config.Parameters[ProjectIDKey] = credentials.ProjectID
@@ -24,9 +24,6 @@ func (f *managerFactory) configInit(config *dsc.Config) error {
 	}
 	return nil
 }
-
-
-
 
 func (f *managerFactory) Create(config *dsc.Config) (dsc.Manager, error) {
 	var connectionProvider = newConnectionProvider(config)

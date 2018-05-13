@@ -1,19 +1,19 @@
 package bgc
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/json"
 	"fmt"
-	"log"
-	"time"
 	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
+	"github.com/viant/toolbox/data"
 	"golang.org/x/net/context"
 	"google.golang.org/api/bigquery/v2"
-	"io"
-	"bytes"
-	"github.com/viant/toolbox/data"
-	"encoding/json"
 	"google.golang.org/api/googleapi"
-	"compress/gzip"
+	"io"
+	"log"
+	"time"
 )
 
 const (
@@ -21,7 +21,7 @@ const (
 	InsertMethodLoad   = "load"
 	jsonFormat         = "NEWLINE_DELIMITED_JSON"
 	createIfNeeded     = "CREATE_IF_NEEDED"
-	writeAppend             = "WRITE_APPEND"
+	writeAppend        = "WRITE_APPEND"
 )
 
 var pullDuration = 5 * time.Second
@@ -58,7 +58,7 @@ func normalizeValue(value interface{}) (interface{}, bool) {
 	if value == nil {
 		return nil, false
 	}
-	if val, ok := value.(interface{}); ! ok || val == nil {
+	if val, ok := value.(interface{}); !ok || val == nil {
 		return nil, false
 	}
 	value = toolbox.DereferenceValue(value)
@@ -71,7 +71,7 @@ func normalizeValue(value interface{}) (interface{}, bool) {
 	} else if toolbox.IsMap(value) {
 		aMap := toolbox.AsMap(value)
 		for k, v := range aMap {
-			val, ok := normalizeValue(v);
+			val, ok := normalizeValue(v)
 			if !ok {
 				delete(aMap, k)
 				continue
@@ -97,7 +97,7 @@ func asJsonMap(record map[string]interface{}) map[string]bigquery.JsonValue {
 	var jsonValues = make(map[string]bigquery.JsonValue)
 	for k, v := range record {
 		val, ok := normalizeValue(v)
-		if ! ok {
+		if !ok {
 			continue
 		}
 		jsonValues[k] = val

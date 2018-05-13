@@ -2,13 +2,11 @@ package bgc
 
 import (
 	"fmt"
-	"time"
 	"github.com/viant/dsc"
 	"golang.org/x/net/context"
 	"google.golang.org/api/bigquery/v2"
+	"time"
 )
-
-
 
 func waitForJobCompletion(service *bigquery.Service, context context.Context, projectID string, jobReferenceID string) (*bigquery.Job, error) {
 	for range time.Tick(tickInterval) {
@@ -18,7 +16,7 @@ func waitForJobCompletion(service *bigquery.Service, context context.Context, pr
 			return nil, fmt.Errorf("failed to check status %v", err)
 		}
 		if res := job.Status.ErrorResult; res != nil {
-			return nil, fmt.Errorf("%v, reason: %v, locaction: %v",job.Status.ErrorResult.Message, job.Status.ErrorResult.Reason, job.Status.ErrorResult.Location)
+			return nil, fmt.Errorf("%v, reason: %v, locaction: %v", job.Status.ErrorResult.Message, job.Status.ErrorResult.Reason, job.Status.ErrorResult.Location)
 		}
 		if job.Status.State == doneStatus {
 			return job, nil
@@ -26,8 +24,6 @@ func waitForJobCompletion(service *bigquery.Service, context context.Context, pr
 	}
 	return nil, fmt.Errorf("failed to check job status")
 }
-
-
 
 func getServiceAndContext(connection dsc.Connection) (*bigquery.Service, context.Context, error) {
 	client, err := asService(connection.Unwrap(servicePointer))

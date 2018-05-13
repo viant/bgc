@@ -1,8 +1,8 @@
 package bgc
 
 import (
-	"google.golang.org/api/bigquery/v2"
 	"context"
+	"google.golang.org/api/bigquery/v2"
 	"strings"
 )
 
@@ -12,8 +12,6 @@ type queryTask struct {
 	service   *bigquery.Service
 	context   context.Context
 }
-
-
 
 func (t *queryTask) run(query string) (*bigquery.Job, error) {
 	jobConfigurationQuery := &bigquery.JobConfigurationQuery{

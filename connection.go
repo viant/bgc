@@ -2,16 +2,16 @@ package bgc
 
 import (
 	"fmt"
-	"io/ioutil"
-	"reflect"
 	"github.com/viant/dsc"
+	"github.com/viant/toolbox/secret"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
 	"google.golang.org/api/bigquery/v2"
+	"io/ioutil"
 	"os"
-	"github.com/viant/toolbox/secret"
+	"reflect"
 )
 
 var bigQueryScope = "https://www.googleapis.com/auth/bigquery"

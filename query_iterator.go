@@ -2,11 +2,11 @@ package bgc
 
 import (
 	"errors"
-	"time"
 	"fmt"
 	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
 	"google.golang.org/api/bigquery/v2"
+	"time"
 )
 
 var useLegacySQL = "/* USE LEGACY SQL */"
@@ -150,12 +150,12 @@ func NewQueryIterator(manager dsc.Manager, query string) (*QueryIterator, error)
 	config := manager.Config()
 	var result = &QueryIterator{
 
-		Rows:  make([]*bigquery.TableRow, 0),
+		Rows: make([]*bigquery.TableRow, 0),
 		queryTask: &queryTask{
-			service:service,
-			context:context,
-			projectID:config.Get(ProjectIDKey),
-			datasetID:config.Get(DataSetIDKey),
+			service:   service,
+			context:   context,
+			projectID: config.Get(ProjectIDKey),
+			datasetID: config.Get(DataSetIDKey),
 		},
 	}
 	job, err := result.run(query)

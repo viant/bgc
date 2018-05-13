@@ -4,16 +4,14 @@ import (
 	"fmt"
 	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
+	"github.com/viant/toolbox/url"
 	"google.golang.org/api/bigquery/v2"
 	"strconv"
-	"github.com/viant/toolbox/url"
 )
 
 const sequenceSQL = "SELECT COUNT(*) AS cnt FROM %v"
 
 type dialect struct{ dsc.DatastoreDialect }
-
-
 
 func (d dialect) DropDatastore(manager dsc.Manager, datastore string) error {
 	config := manager.Config()
@@ -45,11 +43,11 @@ func (d dialect) CreateDatastore(manager dsc.Manager, datastore string) error {
 		return err
 	}
 	datasetInsert := service.Datasets.Insert(config.Get(ProjectIDKey), &bigquery.Dataset{
-		Id: datastore,
-		FriendlyName:datastore,
+		Id:           datastore,
+		FriendlyName: datastore,
 		DatasetReference: &bigquery.DatasetReference{
-			ProjectId:config.Get(ProjectIDKey),
-			DatasetId:config.Get(DataSetIDKey),
+			ProjectId: config.Get(ProjectIDKey),
+			DatasetId: config.Get(DataSetIDKey),
 		},
 	})
 	_, err = datasetInsert.Context(context).Do()
@@ -59,13 +57,10 @@ func (d dialect) CreateDatastore(manager dsc.Manager, datastore string) error {
 	return nil
 }
 
-
-
 func (d dialect) DropTable(manager dsc.Manager, datastore string, table string) error {
 	_, err := manager.Execute("DROP TABLE " + table)
 	return err
 }
-
 
 func (d dialect) GetDatastores(manager dsc.Manager) ([]string, error) {
 	config := manager.Config()
@@ -89,9 +84,6 @@ func (d dialect) GetCurrentDatastore(manager dsc.Manager) (string, error) {
 	return config.Get("datasetId"), nil
 }
 
-
-
-
 //GetSequence returns sequence value or error for passed in manager and table/sequence
 func (d dialect) GetSequence(manager dsc.Manager, name string) (int64, error) {
 	var result = make([]interface{}, 0)
@@ -103,8 +95,6 @@ func (d dialect) GetSequence(manager dsc.Manager, name string) (int64, error) {
 	seq := count + 1
 	return seq, nil
 }
-
-
 
 func (d dialect) GetTables(manager dsc.Manager, datastore string) ([]string, error) {
 	config := manager.Config()
@@ -138,7 +128,6 @@ func (d dialect) GetTables(manager dsc.Manager, datastore string) ([]string, err
 	}
 	return result, nil
 }
-
 
 func buildSchemaFields(fields []map[string]interface{}) ([]*bigquery.TableFieldSchema, error) {
 	var result = make([]*bigquery.TableFieldSchema, 0)
@@ -177,9 +166,6 @@ func buildSchemaFields(fields []map[string]interface{}) ([]*bigquery.TableFieldS
 	return result, nil
 
 }
-
-
-
 
 func tableSchema(descriptor *dsc.TableDescriptor) (*bigquery.TableSchema, error) {
 	schema := bigquery.TableSchema{}
@@ -234,10 +220,9 @@ func (d dialect) CreateTable(manager dsc.Manager, datastore string, tableName st
 	return nil
 }
 
-
 //GetColumns returns columns name
 func (d dialect) GetColumns(manager dsc.Manager, datastore, table string) []string {
-	var result=[]string{}
+	var result = []string{}
 	config := manager.Config()
 	service, context, err := GetServiceAndContextForManager(manager)
 	if err != nil {
@@ -253,8 +238,6 @@ func (d dialect) GetColumns(manager dsc.Manager, datastore, table string) []stri
 	}
 	return result
 }
-
-
 
 func (d dialect) CanPersistBatch() bool {
 	return true

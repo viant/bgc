@@ -11,8 +11,6 @@ import (
 	"time"
 )
 
-
-
 type config struct {
 	*dsc.Config
 	email     string
@@ -41,7 +39,6 @@ func (m *manager) PersistData(connection dsc.Connection, data []interface{}, tab
 	}
 	return inserted, nil
 }
-
 
 func (m *manager) PersistAllOnConnection(connection dsc.Connection, dataPointer interface{}, table string, provider dsc.DmlProvider) (inserted int, updated int, err error) {
 	toolbox.AssertKind(dataPointer, reflect.Ptr, "dataPointer")
@@ -129,8 +126,6 @@ func (m *manager) runInsert(connection dsc.Connection, sql string, sqlParameters
 	}
 }
 
-
-
 func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sqlParameters []interface{}) (result sql.Result, err error) {
 	sql = strings.TrimSpace(sql)
 	if strings.HasPrefix(strings.ToUpper(sql), "INSERT") {
@@ -204,8 +199,6 @@ func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sq
 	}
 	return nil
 }
-
-
 
 func newConfig(cfg *dsc.Config) *config {
 	return &config{

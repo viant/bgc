@@ -1,33 +1,31 @@
 package bgc_test
 
 import (
-	"time"
-	"testing"
+	"github.com/stretchr/testify/assert"
 	_ "github.com/viant/bgc"
 	"github.com/viant/dsc"
-	"log"
-	"github.com/stretchr/testify/assert"
 	"github.com/viant/dsunit"
-	"sync/atomic"
 	"github.com/viant/toolbox"
-	"path"
+	"log"
 	"os"
+	"path"
+	"sync/atomic"
+	"testing"
+	"time"
 )
-
-
 
 var inited int32 = 0
 
 func initDb(t *testing.T) bool {
 
-	if ! toolbox.FileExists(path.Join(os.Getenv("HOME"), ".secret/bq.json")) {
+	if !toolbox.FileExists(path.Join(os.Getenv("HOME"), ".secret/bq.json")) {
 		return false
 	}
 
 	if atomic.LoadInt32(&inited) == 1 {
 		return true
 	}
-	result :=  dsunit.InitFromURL(t, "test/init.yaml")
+	result := dsunit.InitFromURL(t, "test/init.yaml")
 	atomic.StoreInt32(&inited, 1)
 	return result
 
@@ -47,7 +45,6 @@ func GetManager(t *testing.T) dsc.Manager {
 	return manager
 }
 
-
 type MostLikedCity struct {
 	City      string   `column:"city"`
 	Visits    int      `column:"visits"`
@@ -66,15 +63,13 @@ type Traveler struct {
 	}
 }
 
-
-
 func TestReadSingle(t *testing.T) {
 
-	if ! initDb(t) {
+	if !initDb(t) {
 		return
 	}
 
-	if ! dsunit.PrepareFor(t, "myDataset", "test/data", "ReadSingle") {
+	if !dsunit.PrepareFor(t, "myDataset", "test/data", "ReadSingle") {
 		return
 	}
 	manager := GetManager(t)
@@ -95,11 +90,11 @@ func TestReadSingle(t *testing.T) {
 }
 
 func TestReadAll(t *testing.T) {
-	if ! initDb(t) {
+	if !initDb(t) {
 		return
 	}
 
-	if ! dsunit.PrepareFor(t, "myDataset", "test/data", "ReadAll") {
+	if !dsunit.PrepareFor(t, "myDataset", "test/data", "ReadAll") {
 		return
 	}
 
@@ -116,16 +111,13 @@ func TestReadAll(t *testing.T) {
 	}
 }
 
-
-
-
 func TestPersistAll(t *testing.T) {
-	if ! initDb(t) {
+	if !initDb(t) {
 		return
 	}
 	manager := GetManager(t)
 	table := manager.TableDescriptorRegistry().Get("travelers3")
-	if ! assert.NotNil(t, table) {
+	if !assert.NotNil(t, table) {
 		return
 	}
 	table.PkColumns = []string{"id"}
@@ -154,11 +146,8 @@ func TestPersistAll(t *testing.T) {
 	dsunit.ExpectFor(t, "myDataset", dsunit.FullTableDatasetCheckPolicy, "test/data", "PersistAll")
 }
 
-
-
-
 func TestExecuteOnConnection(t *testing.T) {
-	if ! initDb(t) {
+	if !initDb(t) {
 		return
 	}
 	manager := GetManager(t)
@@ -186,10 +175,8 @@ func TestExecuteOnConnection(t *testing.T) {
 
 }
 
-
-
 func TestPersistAllOnConnection(t *testing.T) {
-	if ! initDb(t) {
+	if !initDb(t) {
 		return
 	}
 	manager := GetManager(t)
@@ -198,11 +185,10 @@ func TestPersistAllOnConnection(t *testing.T) {
 	defer connection.Close()
 
 	table := manager.TableDescriptorRegistry().Get("travelers5")
-	if ! assert.NotNil(t, table) {
+	if !assert.NotNil(t, table) {
 		return
 	}
 	table.PkColumns = []string{"id"}
-
 
 	var travelers = make([]Traveler, 2)
 
