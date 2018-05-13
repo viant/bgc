@@ -23,6 +23,8 @@ const (
 	PrivateKeyPathKey   = "privateKeyPath"
 	ProjectIDKey        = "projectId"
 	DataSetIDKey        = "datasetId"
+	DateFormatKey       = "dateFormat"
+	MaxResultsKey       = "maxResults"
 )
 
 var servicePointer = (*bigquery.Service)(nil)
@@ -133,8 +135,6 @@ func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
 		return nil, err
 	}
 
-
-
 	ctx := context.Background()
 	oauthClient := oauth2.NewClient(ctx, authConfig.TokenSource(ctx))
 
@@ -153,10 +153,10 @@ func newConnectionProvider(config *dsc.Config) dsc.ConnectionProvider {
 	if config.MaxPoolSize == 0 {
 		config.MaxPoolSize = 1
 	}
-	aerospikeConnectionProvider := &connectionProvider{}
-	var connectionProvider dsc.ConnectionProvider = aerospikeConnectionProvider
+	provider := &connectionProvider{}
+	var connectionProvider dsc.ConnectionProvider = provider
 	var super = dsc.NewAbstractConnectionProvider(config, make(chan dsc.Connection, config.MaxPoolSize), connectionProvider)
-	aerospikeConnectionProvider.AbstractConnectionProvider = super
-	aerospikeConnectionProvider.AbstractConnectionProvider.ConnectionProvider = connectionProvider
-	return aerospikeConnectionProvider
+	provider.AbstractConnectionProvider = super
+	provider.AbstractConnectionProvider.ConnectionProvider = connectionProvider
+	return provider
 }

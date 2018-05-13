@@ -1,0 +1,4 @@
+driverName: bigquery
+credentials: bq # place your big query secret json to ~/.secret/bg.json
+parameters:
+  datasetId: myDataset

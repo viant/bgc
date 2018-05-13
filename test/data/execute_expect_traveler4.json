@@ -1,0 +1,5 @@
+[
+  {"@fromQuery@":"SELECT id, name FROM travelers4 where id IN (20, 21) ORDER BY id DESC"},
+  {"id":21, "name":"Traveler21"},
+  {"id":20, "name":"Traveler 20"}
+]

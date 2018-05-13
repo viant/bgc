@@ -2,13 +2,10 @@ package bgc
 
 import (
 	"errors"
-	"strings"
 	"time"
-
 	"fmt"
 	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
-	"golang.org/x/net/context"
 	"google.golang.org/api/bigquery/v2"
 )
 
@@ -19,10 +16,8 @@ var doneStatus = "DONE"
 
 //QueryIterator represetns a QueryIterator.
 type QueryIterator struct {
-	service        *bigquery.Service
-	context        context.Context
+	*queryTask
 	schema         *bigquery.TableSchema
-	projectID      string
 	jobCompleted   bool
 	jobReferenceID string
 	Rows           []*bigquery.TableRow
@@ -115,6 +110,7 @@ func (qi *QueryIterator) Next() ([]interface{}, error) {
 func (qi *QueryIterator) fetchPage() error {
 	queryResultCall := qi.service.Jobs.GetQueryResults(qi.projectID, qi.jobReferenceID)
 	queryResultCall.MaxResults(queryPageSize).PageToken(qi.pageToken)
+
 	jobGetResult, err := queryResultCall.Context(qi.context).Do()
 	if err != nil {
 		return err
@@ -151,44 +147,22 @@ func NewQueryIterator(manager dsc.Manager, query string) (*QueryIterator, error)
 		return nil, err
 	}
 
-	useLegacySQL := strings.Contains(query, useLegacySQL) && !strings.Contains(strings.ToLower(query), "group by")
-
 	config := manager.Config()
+	var result = &QueryIterator{
 
-	projectID := config.Get("projectId")
-	datasetID := config.Get("datasetId")
-
-	datasetReference := &bigquery.DatasetReference{ProjectId: projectID, DatasetId: datasetID}
-	jobConfigurationQuery := &bigquery.JobConfigurationQuery{
-		Query:          query,
-		DefaultDataset: datasetReference,
+		Rows:  make([]*bigquery.TableRow, 0),
+		queryTask: &queryTask{
+			service:service,
+			context:context,
+			projectID:config.Get(ProjectIDKey),
+			datasetID:config.Get(DataSetIDKey),
+		},
 	}
-
-	if !useLegacySQL {
-		falseValue := false
-		jobConfigurationQuery.UseLegacySql = &falseValue
-		jobConfigurationQuery.ForceSendFields = []string{"UseLegacySql"}
-	}
-
-	jobConfiguration := &bigquery.JobConfiguration{Query: jobConfigurationQuery}
-	queryJob := bigquery.Job{Configuration: jobConfiguration}
-	jobCall := service.Jobs.Insert(projectID, &queryJob)
-
-	postedJob, err := jobCall.Context(context).Do()
+	job, err := result.run(query)
 	if err != nil {
 		return nil, err
 	}
-	responseJob, err := waitForJobCompletion(service, context, projectID, postedJob.JobReference.JobId)
-	if err != nil {
-		return nil, err
-	}
-	result := &QueryIterator{
-		service:        service,
-		context:        context,
-		projectID:      projectID,
-		jobReferenceID: responseJob.JobReference.JobId,
-		Rows:           make([]*bigquery.TableRow, 0),
-	}
+	result.jobReferenceID = job.JobReference.JobId
 	err = result.fetchPage()
 	if err != nil {
 		return nil, err

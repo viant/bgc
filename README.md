@@ -14,10 +14,68 @@ Please refer to [`CHANGELOG.md`](CHANGELOG.md) if you encounter breaking changes
 
 
 
-This library uses SQL mode as default, and streaming API to insert data.
+This library uses SQL mode and streaming API to insert data as default.
 To use legacy SQL please use the following /* USE LEGACY SQL */ hint, in this case you will not be able to fetch repeated and nested fields.
-Note that schema defined as part of table descriptor is only required to create a table 
-In order to connect to big query this library requires service account id and private key, that has access to project and dataset used.
+To control insert method just provide config.parameters with the following value:
+    
+    _**table_name**_.insertMethod = "load"
+
+Note that if streaming is used, currently UPDATE and DELETE statements are not supported.
+
+
+## Credentials
+
+1. Google secrets for service account
+
+a) credential can be a name with extension of the JSON secret file placed into ~/.secret/ folder
+
+config.yaml
+```yaml
+driverName: bigquery
+credentials: bq # place your big query secret json to ~/.secret/bg.json
+parameters:
+  datasetId: myDataset
+```
+
+b) full URL to secret file
+
+config.yaml
+```yaml
+driverName: bigquery
+credentials: file://tmp/secret/mySecret.json
+parameters:
+  datasetId: myDataset
+```
+
+[Secret file](https://github.com/viant/toolbox/blob/master/cred/config.go) has to specify the following attributes:
+
+````json
+{
+	//google cloud credential
+	ClientEmail  string `json:"client_email,omitempty"`
+	TokenURL     string `json:"token_uri,omitempty"`
+	PrivateKey   string `json:"private_key,omitempty"`
+	PrivateKeyID string `json:"private_key_id,omitempty"`
+	ProjectID  string `json:"project_id,omitempty"`
+}
+````
+
+
+2. Private key (pem)
+
+
+config.yaml
+```yaml
+driverName: bigquery
+credentials: bq # place your big query secret json to ~/.secret/bg.json
+parameters:
+  serviceAccountId: "***@developer.gserviceaccount.com"
+  datasetId: MyDataset
+  projectId: spheric-arcadia-98015
+  privateKeyPath: /tmp/secret/bq.pem
+```
+
+
 
 
 ## Usage:
@@ -31,6 +89,9 @@ package main
 
 import (
     _ 	"github.com/viant/bgc"
+    "github.com/viant/dsc"
+    "time"    
+    "log"
 )
 
 
@@ -56,26 +117,10 @@ type  Traveler struct {
 func main() {
 
     config, err := dsc.NewConfigWithParameters("bigquery", "",
+    	    "bq", // google cloud secret placed in ~/.secret/bg.json
             map[string]string{
-                "serviceAccountId":"***@developer.gserviceaccount.com",
                 "datasetId":"MyDataset",
-                "projectId":"spheric-arcadia-98015",
-                "privateKeyPath":path.Join(os.Getenv("HOME"), ".secret/bq.pem"),
-                "dateFormat":"yyyy-MM-dd hh:mm:ss z",
             })
-    if err != nil {
-        log.Fatal(err)
-    }
-		
-    //or with secret credentails file
-    
-    config, err = dsc.NewConfigWithParameters("bigquery", "",
-    	    path.Join(os.Getenv("HOME"), ".secret/bq.json"),
-            map[string]string{
-                "projectId":"spheric-arcadia-98015",
-                "datasetId":"MyDataset",
-                "dateFormat":"yyyy-MM-dd hh:mm:ss z",
-    })
 
     if err != nil {
         log.Fatal(err)
@@ -85,12 +130,9 @@ func main() {
     factory := dsc.NewManagerFactory()
     manager, err := factory.Create(config)
     if err != nil {
-        t.Fatalf("Failed to create manager %v", err)
+        log.Fatalf("Failed to create manager %v", err)
     }
-    	// manager := factory.CreateFromURL("file:///etc/myapp/datastore.json")
-    	
-    manager.TableDescriptorRegistry().Register(&dsc.TableDescriptor{Table:"travelers3", PkColumns:[]string{"id"}, SchemaUrl:"some_url"})
-
+   
 
     traveler := Traveler{}
     success, err := manager.ReadSingle(&traveler, " SELECT id, name, lastVisitTime, visitedCities, achievements, mostLikedCity FROM travelers WHERE id = ?", []interface{}{4}, nil)
@@ -98,13 +140,13 @@ func main() {
         panic(err.Error())
     }
 
-    var travelers :=  make([]Traveler, 0)
+    travelers :=  make([]Traveler, 0)
     err:= manager.ReadAll(&interest, "SELECT iid, name, lastVisitTime, visitedCities, achievements, mostLikedCity",nil, nil)
     if err != nil {
         panic(err.Error())
     }
 
-    ...
+   // ...
 
     inserted, updated, err := manager.PersistAll(&travelers, "travelers", nil)
     if err != nil {

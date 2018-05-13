@@ -1,0 +1,10 @@
+datastore: myDataset
+config:
+  driverName: bigquery
+  credentials: bq # place your big query secret json to ~/.secret/bg.json
+  parameters:
+    datasetId: myDataset
+recreate: true
+scripts:  #instead of tables with inline table schema DDL schema can be used instead
+  - URL: test/ddl/schema.sql
+

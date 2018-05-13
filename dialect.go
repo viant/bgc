@@ -13,18 +13,59 @@ const sequenceSQL = "SELECT COUNT(*) AS cnt FROM %v"
 
 type dialect struct{ dsc.DatastoreDialect }
 
-func (d dialect) DropTable(manager dsc.Manager, datastore string, table string) error {
+
+
+func (d dialect) DropDatastore(manager dsc.Manager, datastore string) error {
 	config := manager.Config()
 	service, context, err := GetServiceAndContextForManager(manager)
 	if err != nil {
 		return err
 	}
-	err = service.Tables.Delete(config.Get(ProjectIDKey), datastore, table).Context(context).Do()
+	tables, err := d.GetTables(manager, datastore)
+	if err != nil {
+		return err
+	}
+	for _, table := range tables {
+		_, err = manager.Execute("DROP TABLE " + table)
+		if err != nil {
+			return err
+		}
+	}
+	err = service.Datasets.Delete(config.Get(ProjectIDKey), datastore).Context(context).Do()
 	if err != nil {
 		return err
 	}
 	return nil
 }
+
+func (d dialect) CreateDatastore(manager dsc.Manager, datastore string) error {
+	config := manager.Config()
+	service, context, err := GetServiceAndContextForManager(manager)
+	if err != nil {
+		return err
+	}
+	datasetInsert := service.Datasets.Insert(config.Get(ProjectIDKey), &bigquery.Dataset{
+		Id: datastore,
+		FriendlyName:datastore,
+		DatasetReference: &bigquery.DatasetReference{
+			ProjectId:config.Get(ProjectIDKey),
+			DatasetId:config.Get(DataSetIDKey),
+		},
+	})
+	_, err = datasetInsert.Context(context).Do()
+	if err != nil {
+		return fmt.Errorf("failed to create dataset: %v", err)
+	}
+	return nil
+}
+
+
+
+func (d dialect) DropTable(manager dsc.Manager, datastore string, table string) error {
+	_, err := manager.Execute("DROP TABLE " + table)
+	return err
+}
+
 
 func (d dialect) GetDatastores(manager dsc.Manager) ([]string, error) {
 	config := manager.Config()
@@ -48,6 +89,9 @@ func (d dialect) GetCurrentDatastore(manager dsc.Manager) (string, error) {
 	return config.Get("datasetId"), nil
 }
 
+
+
+
 //GetSequence returns sequence value or error for passed in manager and table/sequence
 func (d dialect) GetSequence(manager dsc.Manager, name string) (int64, error) {
 	var result = make([]interface{}, 0)
@@ -60,22 +104,21 @@ func (d dialect) GetSequence(manager dsc.Manager, name string) (int64, error) {
 	return seq, nil
 }
 
+
+
 func (d dialect) GetTables(manager dsc.Manager, datastore string) ([]string, error) {
 	config := manager.Config()
+	maxResults := manager.Config().GetInt(MaxResultsKey, 0)
 	service, context, err := GetServiceAndContextForManager(manager)
 	if err != nil {
 		return nil, err
 	}
-
 	call := service.Tables.List(config.Get(ProjectIDKey), datastore).Context(context)
-
 	pageToken := ""
 	var result = make([]string, 0)
 	for {
-		if manager.Config().Has("maxResults") {
-			maxResults := toolbox.AsInt(manager.Config().Get("maxResults"))
+		if maxResults > 0 {
 			call.MaxResults(int64(maxResults))
-
 		}
 		if pageToken != "" {
 			call.PageToken(pageToken)
@@ -92,10 +135,10 @@ func (d dialect) GetTables(manager dsc.Manager, datastore string) ([]string, err
 		} else {
 			break
 		}
-
 	}
 	return result, nil
 }
+
 
 func buildSchemaFields(fields []map[string]interface{}) ([]*bigquery.TableFieldSchema, error) {
 	var result = make([]*bigquery.TableFieldSchema, 0)
@@ -108,12 +151,12 @@ func buildSchemaFields(fields []map[string]interface{}) ([]*bigquery.TableFieldS
 		if value, found := field["name"]; found {
 			schemaField.Name = toolbox.AsString(value)
 		} else {
-			return nil, fmt.Errorf("Invalid schema definition missing required field name %v from %v", field, fields)
+			return nil, fmt.Errorf("invalid schema definition missing required field name %v from %v", field, fields)
 		}
 		if value, found := field["type"]; found {
 			schemaField.Type = toolbox.AsString(value)
 		} else {
-			return nil, fmt.Errorf("Invalid schema definition missing required field type %v from %v", field, fields)
+			return nil, fmt.Errorf("invalid schema definition missing required field type %v from %v", field, fields)
 		}
 		if value, found := field["fields"]; found {
 			var subFields = make([]map[string]interface{}, 0)
@@ -135,20 +178,23 @@ func buildSchemaFields(fields []map[string]interface{}) ([]*bigquery.TableFieldS
 
 }
 
+
+
+
 func tableSchema(descriptor *dsc.TableDescriptor) (*bigquery.TableSchema, error) {
 	schema := bigquery.TableSchema{}
 	if !descriptor.HasSchema() {
-		return nil, fmt.Errorf("Schema not defined on table %v", descriptor.Table)
+		return nil, fmt.Errorf("schema not defined on table %v", descriptor.Table)
 	}
-	if len(descriptor.SchemaUrl) > 0 {
 
-		resource := url.NewResource(descriptor.SchemaUrl)
+	if len(descriptor.SchemaURL) > 0 {
+		resource := url.NewResource(descriptor.SchemaURL)
 		err := resource.Decode(&schema)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to build decode schema for %v due to %v", descriptor.Table, err)
+			return nil, fmt.Errorf("failed to build decode schema for %v due to %v", descriptor.Table, err)
 		}
 		if schema.Fields == nil || len(schema.Fields) == 0 {
-			return nil, fmt.Errorf("Invalid schema - no fields defined on %v", descriptor.Table)
+			return nil, fmt.Errorf("invalid schema - no fields defined on %v", descriptor.Table)
 		}
 	} else {
 		schemaFields, err := buildSchemaFields(descriptor.Schema)
@@ -177,7 +223,6 @@ func (d dialect) CreateTable(manager dsc.Manager, datastore string, tableName st
 	if err != nil {
 		return err
 	}
-
 	table := &bigquery.Table{
 		TableReference: tableReference,
 		Schema:         tableSchema,
@@ -189,7 +234,37 @@ func (d dialect) CreateTable(manager dsc.Manager, datastore string, tableName st
 	return nil
 }
 
+
+//GetColumns returns columns name
+func (d dialect) GetColumns(manager dsc.Manager, datastore, table string) []string {
+	var result=[]string{}
+	config := manager.Config()
+	service, context, err := GetServiceAndContextForManager(manager)
+	if err != nil {
+		return result
+	}
+	call := service.Tables.Get(config.Get(ProjectIDKey), datastore, table).Context(context)
+	bqTable, err := call.Do()
+	if err != nil {
+		return result
+	}
+	for _, column := range bqTable.Schema.Fields {
+		result = append(result, column.Name)
+	}
+	return result
+}
+
+
+
 func (d dialect) CanPersistBatch() bool {
+	return true
+}
+
+func (d dialect) CanCreateDatastore(manager dsc.Manager) bool {
+	return true
+}
+
+func (d dialect) CanDropDatastore(manager dsc.Manager) bool {
 	return true
 }
 
