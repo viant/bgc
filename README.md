@@ -49,8 +49,8 @@ parameters:
 
 [Secret file](https://github.com/viant/toolbox/blob/master/cred/config.go) has to specify the following attributes:
 
-````json
-{
+````go
+type Config struct {
 	//google cloud credential
 	ClientEmail  string `json:"client_email,omitempty"`
 	TokenURL     string `json:"token_uri,omitempty"`
