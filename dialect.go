@@ -19,17 +19,9 @@ func (d dialect) DropDatastore(manager dsc.Manager, datastore string) error {
 	if err != nil {
 		return err
 	}
-	tables, err := d.GetTables(manager, datastore)
-	if err != nil {
-		return err
-	}
-	for _, table := range tables {
-		_, err = manager.Execute("DROP TABLE " + table)
-		if err != nil {
-			return err
-		}
-	}
-	err = service.Datasets.Delete(config.Get(ProjectIDKey), datastore).Context(context).Do()
+	deleteCommand := service.Datasets.Delete(config.Get(ProjectIDKey), datastore)
+	deleteCommand.DeleteContents(true)
+	err = deleteCommand.Context(context).Do()
 	if err != nil {
 		return err
 	}
