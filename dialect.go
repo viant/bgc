@@ -213,23 +213,25 @@ func (d dialect) CreateTable(manager dsc.Manager, datastore string, tableName st
 }
 
 //GetColumns returns columns name
-func (d dialect) GetColumns(manager dsc.Manager, datastore, table string) []string {
-	var result = []string{}
+func (d dialect) GetColumns(manager dsc.Manager, datastore, table string) ([]dsc.Column, error) {
+	var result = []dsc.Column{}
 	config := manager.Config()
 	service, context, err := GetServiceAndContextForManager(manager)
 	if err != nil {
-		return result
+		return result, err
 	}
 	call := service.Tables.Get(config.Get(ProjectIDKey), datastore, table).Context(context)
 	bqTable, err := call.Do()
 	if err != nil {
-		return result
+		return result, err
 	}
 	for _, column := range bqTable.Schema.Fields {
-		result = append(result, column.Name)
+		var tableColumn = dsc.NewSimpleColumn(column.Name, column.Type)
+		result = append(result, tableColumn)
 	}
-	return result
+	return result, nil
 }
+
 
 func (d dialect) CanPersistBatch() bool {
 	return true
