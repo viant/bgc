@@ -24,6 +24,9 @@ type manager struct {
 }
 
 func (m *manager) PersistData(connection dsc.Connection, data []interface{}, table string, keySetter dsc.KeySetter, sqlProvider func(item interface{}) *dsc.ParametrizedSQL) (int, error) {
+	if len(data) == 0 {
+		return 0, nil
+	}
 	tableDescriptor := m.TableDescriptorRegistry().Get(table)
 	task, err := NewInsertTask(m.Manager, tableDescriptor, true)
 	if err != nil {
@@ -33,6 +36,7 @@ func (m *manager) PersistData(connection dsc.Connection, data []interface{}, tab
 	for _, item := range data {
 		records = append(records, toolbox.AsMap(item))
 	}
+
 	inserted, err := task.InsertAll(records)
 	if err != nil {
 		return 0, fmt.Errorf("failed to insert records on %v, due to %v", table, err)
@@ -98,7 +102,6 @@ func (m *manager) PersistAllOnConnection(connection dsc.Connection, dataPointer 
 func (m *manager) runInsert(connection dsc.Connection, sql string, sqlParameters []interface{}) (result sql.Result, err error) {
 	parser := dsc.NewDmlParser()
 	statement, err := parser.Parse(sql)
-
 	if err != nil {
 		return nil, err
 	}
@@ -128,10 +131,12 @@ func (m *manager) runInsert(connection dsc.Connection, sql string, sqlParameters
 
 func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sqlParameters []interface{}) (result sql.Result, err error) {
 	sql = strings.TrimSpace(sql)
-	if strings.HasPrefix(strings.ToUpper(sql), "INSERT") {
+	lowerCaseSQL := strings.ToLower(sql)
+	if strings.HasPrefix(lowerCaseSQL, "delete") && ! strings.Contains(lowerCaseSQL, "where") {
+		sql += " WHERE 1 = 1"
+	} else 	if strings.HasPrefix(lowerCaseSQL, "insert") {
 		return m.runInsert(connection, sql, sqlParameters)
 	}
-
 	service, context, err := GetServiceAndContextForManager(m)
 	if err != nil {
 		return nil, err
@@ -172,6 +177,8 @@ func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sq
 	if err != nil {
 		return fmt.Errorf("failed to get new query iterator %v %v", sql, err)
 	}
+
+
 	var biqQueryScanner *scanner
 	for iterator.HasNext() {
 		if biqQueryScanner == nil {
