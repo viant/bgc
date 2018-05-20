@@ -25,7 +25,7 @@ const (
 )
 
 var pullDuration = 5 * time.Second
-var streamingTimeout = 360 * time.Second
+var streamingTimeout = 120 * time.Second
 
 //InsertTask represents insert streaming task.
 type InsertTask struct {
@@ -224,9 +224,11 @@ func (it *InsertTask) StreamAll(records []map[string]interface{}) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	if response.InsertErrors != nil && len(response.InsertErrors) > 0 {
 		return 0, fmt.Errorf("failed to insert records %v", response.InsertErrors[0].Errors[0])
 	}
+
 	if it.waitForCompletion {
 		err := it.waitForInsertCompletion(streamRowCount, initialRowCount)
 		if err != nil {
@@ -252,7 +254,8 @@ func NewInsertTask(manager dsc.Manager, table *dsc.TableDescriptor, waitForCompl
 		return nil, err
 	}
 
-	insertMethod := config.GetString(fmt.Sprintf("%v.insertMethod", table.Table), InsertMethodStream)
+	insertMethod := config.GetString(fmt.Sprintf("%v.insertMethod", table.Table), InsertMethodLoad)
+
 
 	return &InsertTask{
 		tableDescriptor:   table,
