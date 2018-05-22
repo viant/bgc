@@ -232,7 +232,6 @@ func (d dialect) GetColumns(manager dsc.Manager, datastore, table string) ([]dsc
 	return result, nil
 }
 
-
 func (d dialect) CanPersistBatch() bool {
 	return false
 }

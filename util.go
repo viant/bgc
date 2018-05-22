@@ -3,15 +3,20 @@ package bgc
 import (
 	"fmt"
 	"github.com/viant/dsc"
+	"github.com/viant/toolbox"
 	"golang.org/x/net/context"
 	"google.golang.org/api/bigquery/v2"
 	"time"
 )
 
-func waitForJobCompletion(service *bigquery.Service, context context.Context, projectID string, jobReferenceID string) (*bigquery.Job, error) {
-	for range time.Tick(tickInterval) {
+func waitForJobCompletion(service *bigquery.Service, context context.Context, projectID string, jobReferenceID string, timeoutMs int) (*bigquery.Job, error) {
+	var waitSoFar = 0
+	var job *bigquery.Job
+	var err error
+
+	for i := 0; ; i++ {
 		statusCall := service.Jobs.Get(projectID, jobReferenceID)
-		job, err := statusCall.Context(context).Do()
+		job, err = statusCall.Context(context).Do()
 		if err != nil {
 			return nil, fmt.Errorf("failed to check status %v", err)
 		}
@@ -21,8 +26,17 @@ func waitForJobCompletion(service *bigquery.Service, context context.Context, pr
 		if job.Status.State == doneStatus {
 			return job, nil
 		}
+		time.Sleep(time.Millisecond * time.Duration(tickInterval*(1+i%20)))
+		waitSoFar += tickInterval
+		if waitSoFar > timeoutMs {
+			break
+		}
 	}
-	return nil, fmt.Errorf("failed to check job status")
+	var JSON string
+	if job != nil {
+		JSON, _ = toolbox.AsIndentJSONText(job)
+	}
+	return nil, fmt.Errorf("failed to check job status(timeout): %v", JSON)
 }
 
 func getServiceAndContext(connection dsc.Connection) (*bigquery.Service, context.Context, error) {

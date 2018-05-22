@@ -12,20 +12,18 @@ import (
 	"google.golang.org/api/bigquery/v2"
 	"google.golang.org/api/googleapi"
 	"io"
-	"log"
+	"strings"
 	"time"
 )
 
 const (
-	InsertMethodStream = "stream"
-	InsertMethodLoad   = "load"
-	jsonFormat         = "NEWLINE_DELIMITED_JSON"
-	createIfNeeded     = "CREATE_IF_NEEDED"
-	writeAppend        = "WRITE_APPEND"
+	InsertMethodStream       = "stream"
+	InsertMethodLoad         = "load"
+	InsertWaitTimeoutInMsKey = "insertWaitTimeoutInMs"
+	jsonFormat               = "NEWLINE_DELIMITED_JSON"
+	createIfNeeded           = "CREATE_IF_NEEDED"
+	writeAppend              = "WRITE_APPEND"
 )
-
-var pullDuration = 5 * time.Second
-var streamingTimeout = 120 * time.Second
 
 //InsertTask represents insert streaming task.
 type InsertTask struct {
@@ -106,40 +104,6 @@ func asJsonMap(record map[string]interface{}) map[string]bigquery.JsonValue {
 	return jsonValues
 }
 
-func (it *InsertTask) getTableRowCount() (int, error) {
-	iterator, err := NewQueryIterator(it.manager, "SELECT COUNT(*) AS cnt FROM "+it.tableDescriptor.Table)
-	if err != nil {
-		return 0, err
-	}
-	if iterator.HasNext() {
-		record, err := iterator.Next()
-		if err != nil {
-			return 0, err
-		}
-		return toolbox.AsInt(toolbox.AsString(record[0])), nil
-	}
-	return 0, nil
-}
-
-func (it *InsertTask) waitForInsertCompletion(streamRowCount, initialRowCount int) error {
-	var maxCount = int(streamingTimeout / pullDuration)
-	for i := 0; i < maxCount; i++ {
-		recentTableRowCount, err := it.getTableRowCount()
-		if err != nil {
-			return err
-		}
-		if recentTableRowCount != initialRowCount {
-			return nil
-		}
-		time.Sleep(pullDuration)
-		if i > 0 {
-			log.Printf("Waiting for stream data %v(%v) being available: elapsed %v sec ", it.tableDescriptor.Table, streamRowCount, ((i + 1) * int(pullDuration/time.Second)))
-		}
-	}
-
-	return fmt.Errorf("timeout - unable to check streaming data in big query")
-}
-
 func buildRecord(record map[string]interface{}) map[string]interface{} {
 	result := data.NewMap()
 	for k, v := range toolbox.AsMap(record) {
@@ -190,12 +154,12 @@ func (it *InsertTask) LoadAll(records []map[string]interface{}) (int, error) {
 	}
 
 	call = call.Media(mediaReader, googleapi.ContentType("application/octet-stream"))
-
 	job, err = call.Do()
 	if err != nil {
 		return 0, err
 	}
-	_, err = waitForJobCompletion(it.service, it.context, it.projectID, job.JobReference.JobId)
+	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, 60000)
+	_, err = waitForJobCompletion(it.service, it.context, it.projectID, job.JobReference.JobId, insertWaitTimeMs)
 	return len(records), err
 }
 
@@ -209,37 +173,66 @@ func (it *InsertTask) StreamAll(records []map[string]interface{}) (int, error) {
 	}
 	insertRequest.Rows = insertRequestRows
 	streamRowCount := len(insertRequestRows)
-	var initialRowCount = 0
-
-	if it.waitForCompletion {
-		var err error
-		initialRowCount, err = it.getTableRowCount()
-		if err != nil {
-			return 0, err
-		}
-	}
 
 	requestCall := it.service.Tabledata.InsertAll(it.projectID, it.datasetID, it.tableDescriptor.Table, insertRequest)
 	response, err := requestCall.Context(it.context).Do()
 	if err != nil {
 		return 0, err
 	}
-
-	if response.InsertErrors != nil && len(response.InsertErrors) > 0 {
-		return 0, fmt.Errorf("failed to insert records %v", response.InsertErrors[0].Errors[0])
+	if len(response.InsertErrors) > 0 {
+		for _, insertError := range response.InsertErrors {
+			if len(insertError.Errors) > 0 {
+				return streamRowCount, fmt.Errorf(insertError.Errors[0].Reason + " " + insertError.Errors[0].Message)
+			}
+		}
+		return streamRowCount, fmt.Errorf("unknown error: %v", response)
 	}
+	err = it.waitForEmptyStreamingBuffer()
+	return streamRowCount, err
+}
 
-	if it.waitForCompletion {
-		err := it.waitForInsertCompletion(streamRowCount, initialRowCount)
+func (it *InsertTask) waitForEmptyStreamingBuffer() error {
+	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, 60000)
+	waitSoFarMs := 0
+	for i := 0; ; i++ {
+		tableRequest := it.service.Tables.Get(it.projectID, it.datasetID, it.tableDescriptor.Table)
+		table, err := tableRequest.Context(it.context).Do()
 		if err != nil {
-			return streamRowCount, err
+			return err
+		}
+		if table.StreamingBuffer == nil || table.StreamingBuffer.EstimatedRows == 0 {
+			break
+		}
+		time.Sleep(time.Millisecond * time.Duration(tickInterval*(1+i%20)))
+		waitSoFarMs += tickInterval
+		if waitSoFarMs > insertWaitTimeMs {
+			break
 		}
 	}
-	return streamRowCount, nil
+	return nil
+}
+
+//InsertAll streams or load all records into big query, returns number records streamed or error.
+func (it *InsertTask) InsertAll(records []map[string]interface{}) (int, error) {
+	if len(records) == 0 {
+		return 0, nil
+	}
+	var count int
+	var err error
+	var retrySleepMs = 2000
+	for i := 0; i < 3; i++ {
+		count, err = it.insertAll(records)
+		if err != nil && strings.Contains(err.Error(), "Error 503") {
+			time.Sleep(time.Duration(retrySleepMs*(1+i)) * time.Millisecond)
+			continue
+		}
+		break
+	}
+	return count, err
 }
 
 //InsertAll streams all records into big query, returns number records streamed or error.
-func (it *InsertTask) InsertAll(records []map[string]interface{}) (int, error) {
+func (it *InsertTask) insertAll(records []map[string]interface{}) (int, error) {
 	if it.insertMethod == InsertMethodStream {
 		return it.StreamAll(records)
 	}
@@ -255,7 +248,6 @@ func NewInsertTask(manager dsc.Manager, table *dsc.TableDescriptor, waitForCompl
 	}
 
 	insertMethod := config.GetString(fmt.Sprintf("%v.insertMethod", table.Table), InsertMethodLoad)
-
 
 	return &InsertTask{
 		tableDescriptor:   table,

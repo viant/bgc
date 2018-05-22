@@ -6,12 +6,11 @@ import (
 	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
 	"google.golang.org/api/bigquery/v2"
-	"time"
 )
 
 var useLegacySQL = "/* USE LEGACY SQL */"
 var queryPageSize int64 = 500
-var tickInterval = 100 * time.Millisecond
+var tickInterval = 100
 var doneStatus = "DONE"
 
 //QueryIterator represetns a QueryIterator.
@@ -152,6 +151,7 @@ func NewQueryIterator(manager dsc.Manager, query string) (*QueryIterator, error)
 
 		Rows: make([]*bigquery.TableRow, 0),
 		queryTask: &queryTask{
+			manager:   manager,
 			service:   service,
 			context:   context,
 			projectID: config.Get(ProjectIDKey),

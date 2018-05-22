@@ -6,6 +6,8 @@ import (
 	"github.com/viant/toolbox/secret"
 )
 
+const defaultTimeFormat = "yyyy-MM-dd HH:mm:ss z"
+
 type managerFactory struct{}
 
 func (f *managerFactory) configInit(config *dsc.Config) error {
@@ -20,7 +22,7 @@ func (f *managerFactory) configInit(config *dsc.Config) error {
 		}
 	}
 	if !config.Has(DateFormatKey) {
-		config.Parameters[DateFormatKey] = "yyyy-MM-dd HH:mm:ss z"
+		config.Parameters[DateFormatKey] = defaultTimeFormat
 	}
 	return nil
 }

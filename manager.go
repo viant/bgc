@@ -132,9 +132,9 @@ func (m *manager) runInsert(connection dsc.Connection, sql string, sqlParameters
 func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sqlParameters []interface{}) (result sql.Result, err error) {
 	sql = strings.TrimSpace(sql)
 	lowerCaseSQL := strings.ToLower(sql)
-	if strings.HasPrefix(lowerCaseSQL, "delete") && ! strings.Contains(lowerCaseSQL, "where") {
+	if strings.HasPrefix(lowerCaseSQL, "delete") && !strings.Contains(lowerCaseSQL, "where") {
 		sql += " WHERE 1 = 1"
-	} else 	if strings.HasPrefix(lowerCaseSQL, "insert") {
+	} else if strings.HasPrefix(lowerCaseSQL, "insert") {
 		return m.runInsert(connection, sql, sqlParameters)
 	}
 	service, context, err := GetServiceAndContextForManager(m)
@@ -143,6 +143,7 @@ func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sql
 	}
 	config := m.Config()
 	queryTask := &queryTask{
+		manager:   m,
 		service:   service,
 		context:   context,
 		projectID: config.Get(ProjectIDKey),
@@ -177,8 +178,6 @@ func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sq
 	if err != nil {
 		return fmt.Errorf("failed to get new query iterator %v %v", sql, err)
 	}
-
-
 	var biqQueryScanner *scanner
 	for iterator.HasNext() {
 		if biqQueryScanner == nil {

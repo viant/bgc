@@ -2,11 +2,15 @@ package bgc
 
 import (
 	"context"
+	"github.com/viant/dsc"
 	"google.golang.org/api/bigquery/v2"
 	"strings"
 )
 
+const queryWaitTimeoutMsKey = "queryWaitTimeoutMs"
+
 type queryTask struct {
+	manager   dsc.Manager
 	projectID string
 	datasetID string
 	service   *bigquery.Service
@@ -33,8 +37,8 @@ func (t *queryTask) run(query string) (*bigquery.Job, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	postedJob, err = waitForJobCompletion(t.service, t.context, t.projectID, postedJob.JobReference.JobId)
+	queryWaitTimeoutMs := t.manager.Config().GetInt(queryWaitTimeoutMsKey, 120000)
+	postedJob, err = waitForJobCompletion(t.service, t.context, t.projectID, postedJob.JobReference.JobId, queryWaitTimeoutMs)
 	if err != nil {
 		return nil, err
 	}
