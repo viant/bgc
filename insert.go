@@ -64,7 +64,11 @@ func normalizeValue(value interface{}) (interface{}, bool) {
 	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, bool, float64, float32:
 		return val, true
 	}
-	if toolbox.IsStruct(value) {
+
+	if toolbox.IsTime(value) {
+		ts := toolbox.AsTime(value, "")
+		return value, ts != nil
+	} else if toolbox.IsStruct(value) {
 		return normalizeValue(toolbox.AsMap(value))
 	} else if toolbox.IsMap(value) {
 		aMap := toolbox.AsMap(value)
@@ -88,6 +92,7 @@ func normalizeValue(value interface{}) (interface{}, bool) {
 		}
 		return newSlice, len(newSlice) > 0
 	}
+
 	return value, true
 }
 
@@ -99,7 +104,6 @@ func asJsonMap(record map[string]interface{}) map[string]bigquery.JsonValue {
 			continue
 		}
 		jsonValues[k] = val
-
 	}
 	return jsonValues
 }
@@ -116,7 +120,8 @@ func (it *InsertTask) buildLoadData(records []map[string]interface{}) (io.Reader
 	result := new(bytes.Buffer)
 	writer := gzip.NewWriter(result)
 	for _, item := range records {
-		err := json.NewEncoder(writer).Encode(asJsonMap(item))
+		var jsonMap = asJsonMap(item)
+		err := json.NewEncoder(writer).Encode(jsonMap)
 		if err != nil {
 			return nil, err
 		}
@@ -158,6 +163,7 @@ func (it *InsertTask) LoadAll(records []map[string]interface{}) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, 60000)
 	_, err = waitForJobCompletion(it.service, it.context, it.projectID, job.JobReference.JobId, insertWaitTimeMs)
 	return len(records), err

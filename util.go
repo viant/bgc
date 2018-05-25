@@ -18,10 +18,11 @@ func waitForJobCompletion(service *bigquery.Service, context context.Context, pr
 		statusCall := service.Jobs.Get(projectID, jobReferenceID)
 		job, err = statusCall.Context(context).Do()
 		if err != nil {
-			return nil, fmt.Errorf("failed to check status %v", err)
+			return job, fmt.Errorf("failed to check status %v", err)
 		}
 		if res := job.Status.ErrorResult; res != nil {
-			return nil, fmt.Errorf("%v, reason: %v, locaction: %v", job.Status.ErrorResult.Message, job.Status.ErrorResult.Reason, job.Status.ErrorResult.Location)
+			info, _ := toolbox.AsIndentJSONText(job)
+			return job, fmt.Errorf("%v: %v", job.Status.ErrorResult.Message, info)
 		}
 		if job.Status.State == doneStatus {
 			return job, nil
@@ -36,7 +37,7 @@ func waitForJobCompletion(service *bigquery.Service, context context.Context, pr
 	if job != nil {
 		JSON, _ = toolbox.AsIndentJSONText(job)
 	}
-	return nil, fmt.Errorf("failed to check job status(timeout): %v", JSON)
+	return job, fmt.Errorf("failed to check job status(timeout): %v", JSON)
 }
 
 func getServiceAndContext(connection dsc.Connection) (*bigquery.Service, context.Context, error) {
