@@ -160,10 +160,17 @@ func NewQueryIterator(manager dsc.Manager, query string) (*QueryIterator, error)
 	}
 	job, err := result.run(query)
 	if err != nil {
+
+		fmt.Printf("err:%v\n%v", err, query)
+	}
+
+
+	if err != nil {
 		return nil, err
 	}
 	result.jobReferenceID = job.JobReference.JobId
 	err = result.fetchPage()
+
 	if err != nil {
 		return nil, err
 	}

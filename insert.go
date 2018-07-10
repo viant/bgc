@@ -1,9 +1,6 @@
 package bgc
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/json"
 	"fmt"
 	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
@@ -92,13 +89,24 @@ func normalizeValue(value interface{}) (interface{}, bool) {
 		}
 		return newSlice, len(newSlice) > 0
 	}
-
 	return value, true
 }
 
-func asJsonMap(record map[string]interface{}) map[string]bigquery.JsonValue {
-	var jsonValues = make(map[string]bigquery.JsonValue)
-	for k, v := range record {
+func asJSONMap(record interface{}) map[string]bigquery.JsonValue  {
+	var jsonValues = make(map[string]bigquery.JsonValue )
+	for k, v := range toolbox.AsMap(record) {
+		val, ok := normalizeValue(v)
+		if !ok {
+			continue
+		}
+		jsonValues[k] = val
+	}
+	return jsonValues
+}
+
+func asMap(record interface{}) map[string]interface{} {
+	var jsonValues = make(map[string]interface{})
+	for k, v := range toolbox.AsMap(record) {
 		val, ok := normalizeValue(v)
 		if !ok {
 			continue
@@ -116,28 +124,43 @@ func buildRecord(record map[string]interface{}) map[string]interface{} {
 	return toolbox.DeleteEmptyKeys(result)
 }
 
-func (it *InsertTask) buildLoadData(records []map[string]interface{}) (io.Reader, error) {
-	result := new(bytes.Buffer)
-	writer := gzip.NewWriter(result)
-	for _, item := range records {
-		var jsonMap = asJsonMap(item)
-		err := json.NewEncoder(writer).Encode(jsonMap)
-		if err != nil {
-			return nil, err
+func (it *InsertTask) buildLoadData(data interface{}) (io.Reader, int, error) {
+	compressed := NewCompressed(nil)
+	ranger, ok := data.(toolbox.Ranger);
+	var count = 0
+	if ok {
+		if err := ranger.Range(func(item interface{}) (bool, error) {
+			return true, compressed.Append(asMap(item))
+		});err != nil {
+			return nil, 0, err
+		}
+	} else {
+		for _, item := range toolbox.AsSlice(data) {
+			if err := compressed.Append(asMap(item));err != nil {
+				return nil, 0, err
+			}
+			count++
 		}
 	}
-	var err error
-	if err = writer.Flush(); err != nil {
-		return nil, err
-	}
-	if err = writer.Close(); err != nil {
-		return nil, err
-	}
-	return bytes.NewReader(result.Bytes()), nil
+	reader, err := compressed.GetAndClose()
+	return reader, count, err
 }
 
 //InsertAll streams all records into big query, returns number records streamed or error.
-func (it *InsertTask) LoadAll(records []map[string]interface{}) (int, error) {
+func (it *InsertTask) LoadAll(data interface{}) (int, error) {
+	mediaReader, count, err := it.buildLoadData(data)
+	if err != nil {
+		return count, err
+	}
+	if err = it.Insert(mediaReader);err  != nil {
+		return 0, err
+	}
+	return count, err
+}
+
+
+//InsertAll streams all records into big query, returns number records streamed or error.
+func (it *InsertTask) Insert(reader io.Reader) error {
 	job := &bigquery.Job{
 		Configuration: &bigquery.JobConfiguration{
 			Load: &bigquery.JobConfigurationLoad{
@@ -153,33 +176,29 @@ func (it *InsertTask) LoadAll(records []map[string]interface{}) (int, error) {
 		},
 	}
 	call := it.service.Jobs.Insert(it.projectID, job)
-	mediaReader, err := it.buildLoadData(records)
+	call = call.Media(reader, googleapi.ContentType("application/octet-stream"))
+	job, err := call.Do()
 	if err != nil {
-		return 0, err
+		return err
 	}
-
-	call = call.Media(mediaReader, googleapi.ContentType("application/octet-stream"))
-	job, err = call.Do()
-	if err != nil {
-		return 0, err
-	}
-
 	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, 60000)
 	_, err = waitForJobCompletion(it.service, it.context, it.projectID, job.JobReference.JobId, insertWaitTimeMs)
-	return len(records), err
+	return err
 }
 
+
+
 //InsertAll streams all records into big query, returns number records streamed or error.
-func (it *InsertTask) StreamAll(records []map[string]interface{}) (int, error) {
+func (it *InsertTask) StreamAll(data interface{}) (int, error) {
 	insertRequest := &bigquery.TableDataInsertAllRequest{}
+	records := toolbox.AsSlice(data)
 	var insertRequestRows = make([]*bigquery.TableDataInsertAllRequestRows, len(records))
 	for i, record := range records {
 		record := buildRecord(toolbox.AsMap(record))
-		insertRequestRows[i] = &bigquery.TableDataInsertAllRequestRows{InsertId: it.insertID(record), Json: asJsonMap(record)}
+		insertRequestRows[i] = &bigquery.TableDataInsertAllRequestRows{InsertId: it.insertID(record), Json: asJSONMap(record)}
 	}
 	insertRequest.Rows = insertRequestRows
 	streamRowCount := len(insertRequestRows)
-
 	requestCall := it.service.Tabledata.InsertAll(it.projectID, it.datasetID, it.tableDescriptor.Table, insertRequest)
 	response, err := requestCall.Context(it.context).Do()
 	if err != nil {
@@ -196,6 +215,8 @@ func (it *InsertTask) StreamAll(records []map[string]interface{}) (int, error) {
 	err = it.waitForEmptyStreamingBuffer()
 	return streamRowCount, err
 }
+
+
 
 func (it *InsertTask) waitForEmptyStreamingBuffer() error {
 	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, 60000)
@@ -219,15 +240,12 @@ func (it *InsertTask) waitForEmptyStreamingBuffer() error {
 }
 
 //InsertAll streams or load all records into big query, returns number records streamed or error.
-func (it *InsertTask) InsertAll(records []map[string]interface{}) (int, error) {
-	if len(records) == 0 {
-		return 0, nil
-	}
+func (it *InsertTask) InsertAll(data interface{}) (int, error) {
 	var count int
 	var err error
 	var retrySleepMs = 2000
 	for i := 0; i < 3; i++ {
-		count, err = it.insertAll(records)
+		count, err = it.insertAll(data)
 		if err != nil && strings.Contains(err.Error(), "Error 503") {
 			time.Sleep(time.Duration(retrySleepMs*(1+i)) * time.Millisecond)
 			continue
@@ -238,12 +256,13 @@ func (it *InsertTask) InsertAll(records []map[string]interface{}) (int, error) {
 }
 
 //InsertAll streams all records into big query, returns number records streamed or error.
-func (it *InsertTask) insertAll(records []map[string]interface{}) (int, error) {
+func (it *InsertTask) insertAll(records interface{}) (int, error) {
 	if it.insertMethod == InsertMethodStream {
 		return it.StreamAll(records)
 	}
 	return it.LoadAll(records)
 }
+
 
 //NewInsertTask creates a new streaming insert task, it takes manager, table descript with schema, waitForCompletion flag with time duration.
 func NewInsertTask(manager dsc.Manager, table *dsc.TableDescriptor, waitForCompletion bool) (*InsertTask, error) {
@@ -252,9 +271,7 @@ func NewInsertTask(manager dsc.Manager, table *dsc.TableDescriptor, waitForCompl
 	if err != nil {
 		return nil, err
 	}
-
 	insertMethod := config.GetString(fmt.Sprintf("%v.insertMethod", table.Table), InsertMethodLoad)
-
 	return &InsertTask{
 		tableDescriptor:   table,
 		service:           service,
@@ -266,3 +283,4 @@ func NewInsertTask(manager dsc.Manager, table *dsc.TableDescriptor, waitForCompl
 		datasetID:         config.Get(DataSetIDKey),
 	}, nil
 }
+

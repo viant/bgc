@@ -23,26 +23,19 @@ type manager struct {
 	bigQueryConfig *config
 }
 
-func (m *manager) PersistData(connection dsc.Connection, data []interface{}, table string, keySetter dsc.KeySetter, sqlProvider func(item interface{}) *dsc.ParametrizedSQL) (int, error) {
-	if len(data) == 0 {
-		return 0, nil
-	}
+func (m *manager) PersistData(connection dsc.Connection, data interface{}, table string, keySetter dsc.KeySetter, sqlProvider func(item interface{}) *dsc.ParametrizedSQL) (int, error) {
 	tableDescriptor := m.TableDescriptorRegistry().Get(table)
 	task, err := NewInsertTask(m.Manager, tableDescriptor, true)
 	if err != nil {
 		return 0, fmt.Errorf("failed to prepare insert task on %v, due to %v", table, err)
 	}
-	var records = []map[string]interface{}{}
-	for _, item := range data {
-		records = append(records, toolbox.AsMap(item))
-	}
-
-	inserted, err := task.InsertAll(records)
+	inserted, err := task.InsertAll(data)
 	if err != nil {
 		return 0, fmt.Errorf("failed to insert records on %v, due to %v", table, err)
 	}
 	return inserted, nil
 }
+
 
 func (m *manager) PersistAllOnConnection(connection dsc.Connection, dataPointer interface{}, table string, provider dsc.DmlProvider) (inserted int, updated int, err error) {
 	toolbox.AssertKind(dataPointer, reflect.Ptr, "dataPointer")
