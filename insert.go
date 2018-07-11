@@ -127,20 +127,24 @@ func buildRecord(record map[string]interface{}) map[string]interface{} {
 func (it *InsertTask) buildLoadData(data interface{}) (io.Reader, int, error) {
 	compressed := NewCompressed(nil)
 	ranger, ok := data.(toolbox.Ranger);
+
 	var count = 0
 	if ok {
 		if err := ranger.Range(func(item interface{}) (bool, error) {
+			count++
 			return true, compressed.Append(asMap(item))
 		});err != nil {
 			return nil, 0, err
 		}
-	} else {
+	} else if toolbox.IsSlice(data) {
 		for _, item := range toolbox.AsSlice(data) {
 			if err := compressed.Append(asMap(item));err != nil {
 				return nil, 0, err
 			}
 			count++
 		}
+	} else {
+		return nil, 0, fmt.Errorf("unsupported type: %T\n", data)
 	}
 	reader, err := compressed.GetAndClose()
 	return reader, count, err
@@ -149,7 +153,7 @@ func (it *InsertTask) buildLoadData(data interface{}) (io.Reader, int, error) {
 //InsertAll streams all records into big query, returns number records streamed or error.
 func (it *InsertTask) LoadAll(data interface{}) (int, error) {
 	mediaReader, count, err := it.buildLoadData(data)
-	if err != nil {
+	if err != nil || count == 0 {
 		return count, err
 	}
 	if err = it.Insert(mediaReader);err  != nil {

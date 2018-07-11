@@ -29,6 +29,7 @@ func (m *manager) PersistData(connection dsc.Connection, data interface{}, table
 	if err != nil {
 		return 0, fmt.Errorf("failed to prepare insert task on %v, due to %v", table, err)
 	}
+
 	inserted, err := task.InsertAll(data)
 	if err != nil {
 		return 0, fmt.Errorf("failed to insert records on %v, due to %v", table, err)
