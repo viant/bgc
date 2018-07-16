@@ -125,8 +125,10 @@ func (m *manager) runInsert(connection dsc.Connection, sql string, sqlParameters
 func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sqlParameters []interface{}) (result sql.Result, err error) {
 	sql = strings.TrimSpace(sql)
 	lowerCaseSQL := strings.ToLower(sql)
-	if strings.HasPrefix(lowerCaseSQL, "delete") && !strings.Contains(lowerCaseSQL, "where") {
-		sql += " WHERE 1 = 1"
+	if strings.HasPrefix(lowerCaseSQL, "delete")  {
+		if !strings.Contains(lowerCaseSQL, "where") {
+			sql += " WHERE 1 = 1"
+		}
 	} else if strings.HasPrefix(lowerCaseSQL, "insert") && strings.Contains(lowerCaseSQL, " values")  {
 		return m.runInsert(connection, sql, sqlParameters)
 	}
