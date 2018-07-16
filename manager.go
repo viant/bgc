@@ -29,7 +29,6 @@ func (m *manager) PersistData(connection dsc.Connection, data interface{}, table
 	if err != nil {
 		return 0, fmt.Errorf("failed to prepare insert task on %v, due to %v", table, err)
 	}
-
 	inserted, err := task.InsertAll(data)
 	if err != nil {
 		return 0, fmt.Errorf("failed to insert records on %v, due to %v", table, err)
@@ -128,7 +127,7 @@ func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sql
 	lowerCaseSQL := strings.ToLower(sql)
 	if strings.HasPrefix(lowerCaseSQL, "delete") && !strings.Contains(lowerCaseSQL, "where") {
 		sql += " WHERE 1 = 1"
-	} else if strings.HasPrefix(lowerCaseSQL, "insert") {
+	} else if strings.HasPrefix(lowerCaseSQL, "insert") && strings.Contains(lowerCaseSQL, " values")  {
 		return m.runInsert(connection, sql, sqlParameters)
 	}
 	service, context, err := GetServiceAndContextForManager(m)
