@@ -152,8 +152,29 @@ func main() {
     if err != nil {
            panic(err.Error())
     }
-    ...
-        
+    // ...
+    
+
+   //Custom reading handler with reading query info
+   var resultInfo = &bgc.QueryResultInfo{}
+   var perf = make(map[string]int)  
+   	err = manager.ReadAllWithHandler(`SELECT DATE(date), COUNT(*) FROM perfromance_agg WHERE DATE(date) = ?  GROUP BY 1`, []interface{}{
+   		"2018-05-03",
+   		resultInfo,
+   	}, func(scanner dsc.Scanner) (toContinue bool, err error) {
+   	        var date string
+   	        var count int
+   	        err := scanner.Scan(&date, &count)
+   	        if err != nil {
+   	        	return false, err
+   	        }
+   	        perf[date] = count
+   		return true, nil
+   	})
+   	log.Printf("cache: %v,  rows: %v, bytes: %v", resultInfo.CacheHit, resultInfo.TotalRows, resultInfo.TotalBytesProcessed)
+
+   
+   
 }
 ```
 

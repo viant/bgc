@@ -21,6 +21,7 @@ type QueryIterator struct {
 	jobReferenceID string
 	Rows           []*bigquery.TableRow
 	rowsIndex      uint64
+	resultInfo     *QueryResultInfo
 	pageToken      string
 	totalRows      uint64
 	processedRows  uint64
@@ -117,6 +118,12 @@ func (qi *QueryIterator) fetchPage() error {
 	if qi.totalRows == 0 {
 		qi.totalRows = jobGetResult.TotalRows
 	}
+	if qi.resultInfo.TotalRows == 0 {
+		qi.resultInfo.TotalBytesProcessed = int(jobGetResult.TotalBytesProcessed)
+		qi.resultInfo.CacheHit = jobGetResult.CacheHit
+		qi.resultInfo.TotalRows = int(jobGetResult.TotalRows)
+	}
+
 	qi.rowsIndex = 0
 	qi.Rows = jobGetResult.Rows
 	qi.pageToken = jobGetResult.PageToken
@@ -160,15 +167,13 @@ func NewQueryIterator(manager dsc.Manager, query string) (*QueryIterator, error)
 	}
 	job, err := result.run(query)
 	if err != nil {
-
 		fmt.Printf("err:%v\n%v", err, query)
 	}
-
-
 	if err != nil {
 		return nil, err
 	}
 	result.jobReferenceID = job.JobReference.JobId
+	result.resultInfo = &QueryResultInfo{}
 	err = result.fetchPage()
 
 	if err != nil {

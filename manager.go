@@ -167,12 +167,37 @@ func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sql
 	return dsc.NewSQLResult(int64(0), int64(0)), nil
 }
 
+
 func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sql string, args []interface{}, readingHandler func(scanner dsc.Scanner) (toContinue bool, err error)) error {
+
+	var queryInfo *QueryResultInfo
+	var argLen = len(args)
+	if len(args) > 0 {
+		if info, ok:=args[len(args)-1].(*QueryResultInfo);ok {
+			queryInfo = info
+			if argLen == 1 {
+				args = []interface{}{}
+			} else {
+				args = args[:len(args)-1]
+			}
+		}
+	}
 	sql = m.ExpandSQL(sql, args)
 	iterator, err := NewQueryIterator(m.Manager, sql)
 	if err != nil {
 		return fmt.Errorf("failed to get new query iterator %v %v", sql, err)
 	}
+
+	defer func() {
+		if queryInfo != nil {
+
+			fmt.Printf("SETTING: %v\n", iterator.resultInfo)
+
+			queryInfo.CacheHit = iterator.resultInfo.CacheHit
+			queryInfo.TotalRows = iterator.resultInfo.TotalRows
+			queryInfo.TotalBytesProcessed = iterator.resultInfo.TotalBytesProcessed
+		}
+	}()
 	var biqQueryScanner *scanner
 	for iterator.HasNext() {
 		if biqQueryScanner == nil {
@@ -190,7 +215,6 @@ func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sq
 		biqQueryScanner.Values = values
 		var scanner dsc.Scanner = biqQueryScanner
 		toContinue, err := readingHandler(scanner)
-
 		if err != nil {
 			return fmt.Errorf("failed to read bigquery %v - unable to map recrod %v", sql, err)
 		}
@@ -200,6 +224,8 @@ func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sq
 	}
 	return nil
 }
+
+
 
 func newConfig(cfg *dsc.Config) *config {
 	return &config{
