@@ -7,19 +7,29 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/api/bigquery/v2"
 	"time"
+	"math"
 )
+
+const maxStatusCheckErrorRetry = 3
 
 func waitForJobCompletion(service *bigquery.Service, context context.Context, projectID string, jobReferenceID string, timeoutMs int) (*bigquery.Job, error) {
 	var waitSoFar = 0
 	var job *bigquery.Job
 	var err error
-
+	var jobStatusErrCheckCount = 0
 	for i := 0; ; i++ {
 		statusCall := service.Jobs.Get(projectID, jobReferenceID)
 		job, err = statusCall.Context(context).Do()
 		if err != nil {
-			return job, fmt.Errorf("failed to check status %v", err)
+			//in case of job status check error, retry 3 times.
+			if jobStatusErrCheckCount > maxStatusCheckErrorRetry {
+				return job, fmt.Errorf("failed to check status %v", err)
+			}
+			jobStatusErrCheckCount++
+			time.Sleep(time.Duration(math.Pow(float64(jobStatusErrCheckCount), 2)) * time.Second)
+			continue
 		}
+
 		if res := job.Status.ErrorResult; res != nil {
 			info, _ := toolbox.AsIndentJSONText(job)
 			return job, fmt.Errorf("%v: %v", job.Status.ErrorResult.Message, info)
