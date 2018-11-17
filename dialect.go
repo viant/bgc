@@ -60,13 +60,22 @@ func (d dialect) GetDatastores(manager dsc.Manager) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	response, err := service.Datasets.List(config.Get(ProjectIDKey)).Context(context).Do()
-	if err != nil {
-		return nil, err
-	}
 	var result = make([]string, 0)
-	for _, dataset := range response.Datasets {
-		result = append(result, dataset.DatasetReference.DatasetId)
+	var token = "";
+	for ;; {
+
+		response, err := service.Datasets.List(config.Get(ProjectIDKey)).PageToken(token).Context(context).Do()
+		if err != nil {
+			return nil, err
+		}
+		for _, dataset := range response.Datasets {
+			result = append(result, dataset.DatasetReference.DatasetId)
+		}
+		if response.NextPageToken == "" {
+			break
+		}
+		token = response.NextPageToken
+
 	}
 	return result, nil
 }
