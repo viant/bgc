@@ -31,6 +31,10 @@ func waitForJobCompletion(service *bigquery.Service, context context.Context, pr
 		}
 
 		if res := job.Status.ErrorResult; res != nil {
+			//remove too many details
+			if job.Configuration != nil && job.Configuration .Load != nil {
+				job.Configuration .Load.Schema = nil
+			}
 			info, _ := toolbox.AsIndentJSONText(job)
 			return job, fmt.Errorf("%v: %v", job.Status.ErrorResult.Message, info)
 		}
