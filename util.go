@@ -6,8 +6,8 @@ import (
 	"github.com/viant/toolbox"
 	"golang.org/x/net/context"
 	"google.golang.org/api/bigquery/v2"
-	"time"
 	"math"
+	"time"
 )
 
 const maxStatusCheckErrorRetry = 3
@@ -32,8 +32,8 @@ func waitForJobCompletion(service *bigquery.Service, context context.Context, pr
 
 		if res := job.Status.ErrorResult; res != nil {
 			//remove too many details
-			if job.Configuration != nil && job.Configuration .Load != nil {
-				job.Configuration .Load.Schema = nil
+			if job.Configuration != nil && job.Configuration.Load != nil {
+				job.Configuration.Load.Schema = nil
 			}
 			info, _ := toolbox.AsIndentJSONText(job)
 			return job, fmt.Errorf("%v: %v", job.Status.ErrorResult.Message, info)

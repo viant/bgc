@@ -1,18 +1,16 @@
 package bgc
 
-
-
 import "bytes"
 import (
 	"compress/gzip"
-	"io"
 	"github.com/viant/toolbox"
+	"io"
 )
 
 //Compressed represent compressed encoded payload
 type Compressed struct {
-	output *bytes.Buffer
-	writer *gzip.Writer
+	output         *bytes.Buffer
+	writer         *gzip.Writer
 	encoderFactory toolbox.EncoderFactory
 }
 
@@ -38,9 +36,9 @@ func NewCompressed(encoderFactory toolbox.EncoderFactory) *Compressed {
 	if encoderFactory == nil {
 		encoderFactory = toolbox.NewJSONEncoderFactory()
 	}
-	var result =  &Compressed{
-		encoderFactory:encoderFactory,
-		output:new(bytes.Buffer),
+	var result = &Compressed{
+		encoderFactory: encoderFactory,
+		output:         new(bytes.Buffer),
 	}
 	result.writer = gzip.NewWriter(result.output)
 	return result
