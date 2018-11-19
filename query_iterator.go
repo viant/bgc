@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/viant/dsc"
-	"github.com/viant/toolbox"
 	"google.golang.org/api/bigquery/v2"
+	"github.com/viant/toolbox"
+	"strings"
+	"time"
 )
 
 var useLegacySQL = "/* USE LEGACY SQL */"
@@ -32,60 +34,82 @@ func (qi *QueryIterator) HasNext() bool {
 	return qi.processedRows < qi.totalRows
 }
 
-//Unwarpping big query nested result
-func unwrapValueIfNeeded(value interface{}, field *bigquery.TableFieldSchema) interface{} {
-	if fieldMap, ok := value.(map[string]interface{}); ok {
-		if wrappedValue, ok := fieldMap["v"]; ok {
-			if field.Fields != nil {
-				return unwrapValueIfNeeded(wrappedValue, field)
-			}
-			return wrappedValue
+func convertRepeated(value []interface{}, field *bigquery.TableFieldSchema) (interface{}, error) {
+	var result = []interface{}{}
+	for _, item := range value {
+		itemValue, ok := item.(map[string]interface{})
+		if ! ok {
+			return nil, fmt.Errorf("invalid repeated type, expected map[string]inerface{}, but had %T", item)
 		}
+		converted, err := convertValue(itemValue["v"], field)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, converted)
 
-		if fieldValue, ok := fieldMap["f"]; ok {
-			if field.Fields != nil {
-				var newMap = make(map[string]interface{})
-				toolbox.ProcessSliceWithIndex(fieldValue, func(index int, item interface{}) bool {
-					newMapValue := unwrapValueIfNeeded(item, field.Fields[index])
-					newMap[field.Fields[index].Name] = newMapValue
-					index++
-					return true
-				})
-				return newMap
-			}
-		}
-
-		panic("Should not be here " + fmt.Sprintf("%v", value))
 	}
-	if slice, ok := value.([]interface{}); ok {
-		var newSlice = make([]interface{}, 0)
-		for _, item := range slice {
-			value := unwrapValueIfNeeded(item, field)
-			newSlice = append(newSlice, value)
-		}
-		return newSlice
-	}
-	return value
+	return result, nil;
 }
 
-func toValue(source interface{}, field *bigquery.TableFieldSchema) interface{} {
-	switch sourceValue := source.(type) {
+func convertNested(value map[string]interface{}, field *bigquery.TableFieldSchema) (interface{}, error) {
+	_, ok := value["f"]
+	if ! ok {
+		return nil, fmt.Errorf("invalid nested for field: %v", field.Name)
+	}
+	nested, ok := value["f"].([]interface{})
+	if ! ok {
+		return nil, fmt.Errorf("invalid nested nested type for field: %v", field.Name)
+	}
+	var fields = field.Fields
+	if len(nested) != len(fields) {
+		return nil, fmt.Errorf("schema length does not match nested length for field: %v", field.Name);
+	}
+
+	var result = map[string]interface{}{}
+	for i, cell := range nested {
+		cellValue, ok := cell.(map[string]interface{});
+		if !ok {
+			return nil, fmt.Errorf("invalid nested nested item type, expected map[string]interface{}, but had %T", cellValue)
+		}
+		converted, err := convertValue(cellValue["v"], fields[i])
+		if err != nil {
+			return nil, err
+		}
+		result[fields[i].Name] = converted
+	}
+	return result, nil
+}
+
+func convertValue(value interface{}, field *bigquery.TableFieldSchema) (interface{}, error) {
+	if value == nil {
+		return nil, nil
+	}
+	switch typedValue := value.(type) {
 	case []interface{}:
-		var newSlice = make([]interface{}, 0)
-		for _, item := range sourceValue {
-			itemValue := unwrapValueIfNeeded(item, field)
-			newSlice = append(newSlice, itemValue)
-		}
-		return newSlice
-
+		return convertRepeated(typedValue, field)
 	case map[string]interface{}:
-		return unwrapValueIfNeeded(sourceValue, field)
-
+		return convertNested(typedValue, field)
 	}
 
-	return source
-
+	switch strings.ToUpper(field.Type) {
+	case "INTEGER":
+		return toolbox.ToInt(value)
+	case "FLOAT":
+		return toolbox.ToFloat(value)
+	case "TIMESTAMP":
+		timestampFloat, err := toolbox.ToFloat(value)
+		if err != nil {
+			return nil, err
+		}
+		timestamp := int64(timestampFloat*1000) * int64(time.Millisecond)
+		timeValue := time.Unix(0, timestamp)
+		return timeValue, nil
+	case "BOOLEAN":
+		return toolbox.AsBoolean(value), nil
+	}
+	return value, nil
 }
+
 
 //Next returns next row.
 func (qi *QueryIterator) Next() ([]interface{}, error) {
@@ -101,7 +125,10 @@ func (qi *QueryIterator) Next() ([]interface{}, error) {
 	fields := qi.schema.Fields
 	var values = make([]interface{}, 0)
 	for i, cell := range row.F {
-		value := toValue(cell.V, fields[i])
+		value, err := convertValue(cell.V, fields[i])
+		if err != nil {
+			return nil, err
+		}
 		values = append(values, value)
 	}
 	return values, nil
