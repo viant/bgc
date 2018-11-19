@@ -92,8 +92,8 @@ func normalizeValue(value interface{}) (interface{}, bool) {
 	return value, true
 }
 
-func asJSONMap(record interface{}) map[string]bigquery.JsonValue  {
-	var jsonValues = make(map[string]bigquery.JsonValue )
+func asJSONMap(record interface{}) map[string]bigquery.JsonValue {
+	var jsonValues = make(map[string]bigquery.JsonValue)
 	for k, v := range toolbox.AsMap(record) {
 		val, ok := normalizeValue(v)
 		if !ok {
@@ -126,19 +126,19 @@ func buildRecord(record map[string]interface{}) map[string]interface{} {
 
 func (it *InsertTask) buildLoadData(data interface{}) (io.Reader, int, error) {
 	compressed := NewCompressed(nil)
-	ranger, ok := data.(toolbox.Ranger);
+	ranger, ok := data.(toolbox.Ranger)
 
 	var count = 0
 	if ok {
 		if err := ranger.Range(func(item interface{}) (bool, error) {
 			count++
 			return true, compressed.Append(asMap(item))
-		});err != nil {
+		}); err != nil {
 			return nil, 0, err
 		}
 	} else if toolbox.IsSlice(data) {
 		for _, item := range toolbox.AsSlice(data) {
-			if err := compressed.Append(asMap(item));err != nil {
+			if err := compressed.Append(asMap(item)); err != nil {
 				return nil, 0, err
 			}
 			count++
@@ -156,16 +156,16 @@ func (it *InsertTask) LoadAll(data interface{}) (int, error) {
 	if err != nil || count == 0 {
 		return count, err
 	}
-	if err = it.Insert(mediaReader);err  != nil {
+
+	if err = it.Insert(mediaReader); err != nil {
 		return 0, err
 	}
 	return count, err
 }
 
-
 //InsertAll streams all records into big query, returns number records streamed or error.
 func (it *InsertTask) Insert(reader io.Reader) error {
-	job := &bigquery.Job{
+	req := &bigquery.Job{
 		Configuration: &bigquery.JobConfiguration{
 			Load: &bigquery.JobConfigurationLoad{
 				SourceFormat: jsonFormat,
@@ -179,18 +179,17 @@ func (it *InsertTask) Insert(reader io.Reader) error {
 			},
 		},
 	}
-	call := it.service.Jobs.Insert(it.projectID, job)
+	call := it.service.Jobs.Insert(it.projectID, req)
 	call = call.Media(reader, googleapi.ContentType("application/octet-stream"))
 	job, err := call.Do()
 	if err != nil {
-		return err
+		jobJSON, _ := toolbox.AsIndentJSONText(req)
+		return fmt.Errorf("failed to submit insert job: %v, %v", jobJSON, err)
 	}
 	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, 60000)
 	_, err = waitForJobCompletion(it.service, it.context, it.projectID, job.JobReference.JobId, insertWaitTimeMs)
 	return err
 }
-
-
 
 //InsertAll streams all records into big query, returns number records streamed or error.
 func (it *InsertTask) StreamAll(data interface{}) (int, error) {
@@ -219,8 +218,6 @@ func (it *InsertTask) StreamAll(data interface{}) (int, error) {
 	err = it.waitForEmptyStreamingBuffer()
 	return streamRowCount, err
 }
-
-
 
 func (it *InsertTask) waitForEmptyStreamingBuffer() error {
 	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, 60000)
@@ -267,7 +264,6 @@ func (it *InsertTask) insertAll(records interface{}) (int, error) {
 	return it.LoadAll(records)
 }
 
-
 //NewInsertTask creates a new streaming insert task, it takes manager, table descript with schema, waitForCompletion flag with time duration.
 func NewInsertTask(manager dsc.Manager, table *dsc.TableDescriptor, waitForCompletion bool) (*InsertTask, error) {
 	config := manager.Config()
@@ -287,4 +283,3 @@ func NewInsertTask(manager dsc.Manager, table *dsc.TableDescriptor, waitForCompl
 		datasetID:         config.Get(DataSetIDKey),
 	}, nil
 }
-
