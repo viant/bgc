@@ -88,9 +88,10 @@ The following is a very simple example of Reading and Inserting data
 package main
 
 import (
-    _ 	"github.com/viant/bgc"
+    "github.com/viant/bgc"
     "github.com/viant/dsc"
-    "time"    
+    "time"
+    "fmt"
     "log"
 )
 
@@ -155,16 +156,20 @@ func main() {
     // ...
     
 
-   //Custom reading handler with reading query info
+
+
+
+   //Custom reading handler with reading query info type to get CacheHit, TotalRows, TotalBytesProcessed
+
    var resultInfo = &bgc.QueryResultInfo{}
    var perf = make(map[string]int)  
-   	err = manager.ReadAllWithHandler(`SELECT DATE(date), COUNT(*) FROM perfromance_agg WHERE DATE(date) = ?  GROUP BY 1`, []interface{}{
+   	err = manager.ReadAllWithHandler(`SELECT DATE(date), COUNT(*) FROM performance_agg WHERE DATE(date) = ?  GROUP BY 1`, []interface{}{
    		"2018-05-03",
    		resultInfo,
    	}, func(scanner dsc.Scanner) (toContinue bool, err error) {
    	        var date string
    	        var count int
-   	        err := scanner.Scan(&date, &count)
+   	        err = scanner.Scan(&date, &count)
    	        if err != nil {
    	        	return false, err
    	        }
@@ -174,6 +179,9 @@ func main() {
    	log.Printf("cache: %v,  rows: %v, bytes: %v", resultInfo.CacheHit, resultInfo.TotalRows, resultInfo.TotalBytesProcessed)
 
    
+    dialect := dsc.GetDatastoreDialect(config.DriverName)
+    DDL, err := dialect.ShowCreateTable(manager, "performance_agg")
+    fmt.Printf("%v %v\n", DDL, err)
    
 }
 ```
