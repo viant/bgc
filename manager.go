@@ -36,7 +36,6 @@ func (m *manager) PersistData(connection dsc.Connection, data interface{}, table
 	return inserted, nil
 }
 
-
 func (m *manager) PersistAllOnConnection(connection dsc.Connection, dataPointer interface{}, table string, provider dsc.DmlProvider) (inserted int, updated int, err error) {
 	toolbox.AssertKind(dataPointer, reflect.Ptr, "dataPointer")
 	provider, err = dsc.NewDmlProviderIfNeeded(provider, table, reflect.TypeOf(dataPointer).Elem())
@@ -125,11 +124,11 @@ func (m *manager) runInsert(connection dsc.Connection, sql string, sqlParameters
 func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sqlParameters []interface{}) (result sql.Result, err error) {
 	sql = strings.TrimSpace(sql)
 	lowerCaseSQL := strings.ToLower(sql)
-	if strings.HasPrefix(lowerCaseSQL, "delete")  {
+	if strings.HasPrefix(lowerCaseSQL, "delete") {
 		if !strings.Contains(lowerCaseSQL, "where") {
 			sql += " WHERE 1 = 1"
 		}
-	} else if strings.HasPrefix(lowerCaseSQL, "insert") && strings.Contains(lowerCaseSQL, " values")  {
+	} else if strings.HasPrefix(lowerCaseSQL, "insert") && strings.Contains(lowerCaseSQL, " values") {
 		return m.runInsert(connection, sql, sqlParameters)
 	}
 	service, context, err := GetServiceAndContextForManager(m)
@@ -167,13 +166,12 @@ func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sql
 	return dsc.NewSQLResult(int64(0), int64(0)), nil
 }
 
-
 func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sql string, args []interface{}, readingHandler func(scanner dsc.Scanner) (toContinue bool, err error)) error {
 
 	var queryInfo *QueryResultInfo
 	var argLen = len(args)
 	if len(args) > 0 {
-		if info, ok:=args[len(args)-1].(*QueryResultInfo);ok {
+		if info, ok := args[len(args)-1].(*QueryResultInfo); ok {
 			queryInfo = info
 			if argLen == 1 {
 				args = []interface{}{}
@@ -224,8 +222,6 @@ func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sq
 	}
 	return nil
 }
-
-
 
 func newConfig(cfg *dsc.Config) *config {
 	return &config{
