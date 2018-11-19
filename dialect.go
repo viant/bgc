@@ -7,11 +7,25 @@ import (
 	"github.com/viant/toolbox/url"
 	"google.golang.org/api/bigquery/v2"
 	"strconv"
+	"strings"
 )
 
 const sequenceSQL = "SELECT COUNT(*) AS cnt FROM %v"
+const tableInfoSQL = `
+SELECT column_name AS name,  data_type, IF(is_nullable = 'YES', true, false) AS is_nullable, IF(is_partitioning_column = 'YES', true, false) AS is_partitioned, clustering_ordinal_position AS cluster_position FROM
+%v.INFORMATION_SCHEMA.COLUMNS
+WHERE table_schema = '%s' AND table_name = '%s'
+ORDER BY ordinal_position;
+`
 
 type dialect struct{ dsc.DatastoreDialect }
+type ColumnInfo struct {
+	Name            string
+	DataType        string
+	IsNullable      bool
+	IsPartitioned   bool
+	ClusterPosition int
+}
 
 func (d dialect) DropDatastore(manager dsc.Manager, datastore string) error {
 	config := manager.Config()
@@ -61,9 +75,8 @@ func (d dialect) GetDatastores(manager dsc.Manager) ([]string, error) {
 		return nil, err
 	}
 	var result = make([]string, 0)
-	var token = "";
-	for ;; {
-
+	var token = ""
+	for {
 		response, err := service.Datasets.List(config.Get(ProjectIDKey)).PageToken(token).Context(context).Do()
 		if err != nil {
 			return nil, err
@@ -75,7 +88,6 @@ func (d dialect) GetDatastores(manager dsc.Manager) ([]string, error) {
 			break
 		}
 		token = response.NextPageToken
-
 	}
 	return result, nil
 }
@@ -251,6 +263,48 @@ func (d dialect) CanCreateDatastore(manager dsc.Manager) bool {
 
 func (d dialect) CanDropDatastore(manager dsc.Manager) bool {
 	return true
+}
+
+func (d dialect) ShowCreateTable(manager dsc.Manager, table string) (string, error) {
+	datastore, err := d.GetCurrentDatastore(manager)
+	if err != nil {
+		return "", err
+	}
+	DQL := fmt.Sprintf(tableInfoSQL, datastore, datastore, table)
+	var columnInfos = make([]*ColumnInfo, 0)
+	err = manager.ReadAll(&columnInfos, DQL, nil, nil)
+	if err != nil {
+		return "", err
+	}
+	var columns = []string{}
+	var clusterMap = map[int]string{}
+	var partitionColumns = []string{}
+	for _, columnInfo := range columnInfos {
+		var columnDDL = columnInfo.Name + " " + columnInfo.DataType
+		if !columnInfo.IsNullable && !strings.Contains(columnInfo.DataType, "ARRAY") {
+			columnDDL += " NOT NULL"
+		}
+		columns = append(columns, columnDDL)
+		if columnInfo.IsPartitioned {
+			partitionColumns = append(partitionColumns, columnInfo.Name)
+		}
+		if columnInfo.ClusterPosition != 0 {
+			clusterMap[columnInfo.ClusterPosition] = columnInfo.Name
+		}
+	}
+	DDL := fmt.Sprintf("CREATE OR REPLACE %v.%v (\n%v)", datastore, table, strings.Join(columns, ",\n"))
+	if len(partitionColumns) > 0 {
+		//at this time only one date partition column is supported
+		DDL += fmt.Sprintf("\nPARTITION BY DATE(%v)", partitionColumns[0])
+	}
+	if len(clusterMap) > 0 {
+		var clusterColumns = []string{}
+		for i := 1; i <= len(clusterMap); i++ {
+			clusterColumns = append(clusterColumns, clusterMap[i])
+		}
+		DDL += fmt.Sprintf("CLUSTER BY %v", strings.Join(clusterColumns, "\n"))
+	}
+	return DDL, nil
 }
 
 func newDialect() dsc.DatastoreDialect {
