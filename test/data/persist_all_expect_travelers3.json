@@ -6,7 +6,7 @@
   {
     "id": 20,
     "name": "Robin",
-    "lastVisitTime": "<ds:within_sec [\"now\",60, \"\"]>",
+    "lastVisitTime": "<ds:within_sec[\"now\", 60, \"\"]>",
     "achievements": [
       "w",
       "a"
