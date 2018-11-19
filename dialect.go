@@ -292,7 +292,7 @@ func (d dialect) ShowCreateTable(manager dsc.Manager, table string) (string, err
 			clusterMap[columnInfo.ClusterPosition] = columnInfo.Name
 		}
 	}
-	DDL := fmt.Sprintf("CREATE OR REPLACE %v.%v (\n%v)", datastore, table, strings.Join(columns, ",\n"))
+	DDL := fmt.Sprintf("CREATE OR REPLACE TABLE %v.%v (\n%v)", datastore, table, strings.Join(columns, ",\n"))
 	if len(partitionColumns) > 0 {
 		//at this time only one date partition column is supported
 		DDL += fmt.Sprintf("\nPARTITION BY DATE(%v)", partitionColumns[0])
