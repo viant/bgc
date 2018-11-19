@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/viant/dsc"
-	"google.golang.org/api/bigquery/v2"
 	"github.com/viant/toolbox"
+	"google.golang.org/api/bigquery/v2"
 	"strings"
 	"time"
 )
@@ -38,7 +38,7 @@ func convertRepeated(value []interface{}, field *bigquery.TableFieldSchema) (int
 	var result = []interface{}{}
 	for _, item := range value {
 		itemValue, ok := item.(map[string]interface{})
-		if ! ok {
+		if !ok {
 			return nil, fmt.Errorf("invalid repeated type, expected map[string]inerface{}, but had %T", item)
 		}
 		converted, err := convertValue(itemValue["v"], field)
@@ -48,26 +48,26 @@ func convertRepeated(value []interface{}, field *bigquery.TableFieldSchema) (int
 		result = append(result, converted)
 
 	}
-	return result, nil;
+	return result, nil
 }
 
 func convertNested(value map[string]interface{}, field *bigquery.TableFieldSchema) (interface{}, error) {
 	_, ok := value["f"]
-	if ! ok {
+	if !ok {
 		return nil, fmt.Errorf("invalid nested for field: %v", field.Name)
 	}
 	nested, ok := value["f"].([]interface{})
-	if ! ok {
+	if !ok {
 		return nil, fmt.Errorf("invalid nested nested type for field: %v", field.Name)
 	}
 	var fields = field.Fields
 	if len(nested) != len(fields) {
-		return nil, fmt.Errorf("schema length does not match nested length for field: %v", field.Name);
+		return nil, fmt.Errorf("schema length does not match nested length for field: %v", field.Name)
 	}
 
 	var result = map[string]interface{}{}
 	for i, cell := range nested {
-		cellValue, ok := cell.(map[string]interface{});
+		cellValue, ok := cell.(map[string]interface{})
 		if !ok {
 			return nil, fmt.Errorf("invalid nested nested item type, expected map[string]interface{}, but had %T", cellValue)
 		}
@@ -109,7 +109,6 @@ func convertValue(value interface{}, field *bigquery.TableFieldSchema) (interfac
 	}
 	return value, nil
 }
-
 
 //Next returns next row.
 func (qi *QueryIterator) Next() ([]interface{}, error) {
