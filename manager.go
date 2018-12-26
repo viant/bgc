@@ -97,6 +97,7 @@ func (m *manager) runInsert(connection dsc.Connection, sql string, sqlParameters
 	if err != nil {
 		return nil, err
 	}
+
 	switch statement.Type {
 	case "INSERT":
 		parameters := toolbox.NewSliceIterator(sqlParameters)
@@ -143,7 +144,24 @@ func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sql
 		projectID: config.Get(ProjectIDKey),
 		datasetID: config.Get(DataSetIDKey),
 	}
+	sql = m.expandSQLParams(sql, sqlParameters)
 
+	job, err := queryTask.run(sql)
+	if err != nil {
+		return nil, err
+	}
+	if job.Statistics != nil && job.Statistics.Query != nil {
+		return dsc.NewSQLResult(job.Statistics.Query.NumDmlAffectedRows, int64(0)), nil
+	}
+	return dsc.NewSQLResult(int64(0), int64(0)), nil
+}
+
+
+
+func (m *manager) expandSQLParams(sql string, sqlParameters []interface{}, ) string {
+	if len(sqlParameters) == 0 {
+		return sql
+	}
 	for _, param := range sqlParameters {
 		switch value := param.(type) {
 		case string:
@@ -156,14 +174,7 @@ func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sql
 			sql = strings.Replace(sql, "?", toolbox.AsString(param), 1)
 		}
 	}
-	job, err := queryTask.run(sql)
-	if err != nil {
-		return nil, err
-	}
-	if job.Statistics != nil && job.Statistics.Query != nil {
-		return dsc.NewSQLResult(job.Statistics.Query.NumDmlAffectedRows, int64(0)), nil
-	}
-	return dsc.NewSQLResult(int64(0), int64(0)), nil
+	return sql
 }
 
 func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sql string, args []interface{}, readingHandler func(scanner dsc.Scanner) (toContinue bool, err error)) error {
@@ -180,6 +191,7 @@ func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sq
 			}
 		}
 	}
+	sql  = m.expandSQLParams(sql, args)
 	sql = m.ExpandSQL(sql, args)
 	iterator, err := NewQueryIterator(m.Manager, sql)
 	if err != nil {
