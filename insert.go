@@ -10,6 +10,7 @@ import (
 	"google.golang.org/api/googleapi"
 	"io"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -17,6 +18,7 @@ const (
 	InsertMethodStream       = "stream"
 	InsertMethodLoad         = "load"
 	InsertWaitTimeoutInMsKey = "insertWaitTimeoutInMs"
+	StreamBatchCount         = "streamBatchCount" //can not be more than 10000
 	jsonFormat               = "NEWLINE_DELIMITED_JSON"
 	createIfNeeded           = "CREATE_IF_NEEDED"
 	writeAppend              = "WRITE_APPEND"
@@ -186,41 +188,92 @@ func (it *InsertTask) Insert(reader io.Reader) error {
 		jobJSON, _ := toolbox.AsIndentJSONText(req)
 		return fmt.Errorf("failed to submit insert job: %v, %v", jobJSON, err)
 	}
-	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, 60000)
+	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, 20000)
 	_, err = waitForJobCompletion(it.service, it.context, it.projectID, job.JobReference.JobId, insertWaitTimeMs)
 	return err
 }
 
 //InsertAll streams all records into big query, returns number records streamed or error.
 func (it *InsertTask) StreamAll(data interface{}) (int, error) {
-	insertRequest := &bigquery.TableDataInsertAllRequest{}
 	records := toolbox.AsSlice(data)
-	var insertRequestRows = make([]*bigquery.TableDataInsertAllRequestRows, len(records))
-	for i, record := range records {
-		record := buildRecord(toolbox.AsMap(record))
-		insertRequestRows[i] = &bigquery.TableDataInsertAllRequestRows{InsertId: it.insertID(record), Json: asJSONMap(record)}
+
+	estimatedRows := len(records)
+	tableRequest := it.service.Tables.Get(it.projectID, it.datasetID, it.tableDescriptor.Table)
+	if table, err := tableRequest.Context(it.context).Do(); err == nil {
+		if table.StreamingBuffer != nil {
+			estimatedRows += int(table.StreamingBuffer.EstimatedRows)
+		}
 	}
-	insertRequest.Rows = insertRequestRows
-	streamRowCount := len(insertRequestRows)
-	requestCall := it.service.Tabledata.InsertAll(it.projectID, it.datasetID, it.tableDescriptor.Table, insertRequest)
-	response, err := requestCall.Context(it.context).Do()
+
+	streamBatchCount := it.manager.Config().GetInt(StreamBatchCount, 9999)
+	i := 0
+	batchCount := 0
+	streamRowCount := 0
+	var err error
+	var waitGroup = sync.WaitGroup{}
+	waitGroup.Add(1)
+
+	for i < len(records) {
+		var rows = make([]*bigquery.TableDataInsertAllRequestRows, 0)
+		for ; i < len(records); i++ {
+			record := buildRecord(toolbox.AsMap(records[i]))
+			rows = append(rows, &bigquery.TableDataInsertAllRequestRows{InsertId: it.insertID(record), Json: asJSONMap(record)})
+			if len(rows) >= streamBatchCount {
+				break
+			}
+		}
+		if len(rows) == 0 {
+			break
+		}
+		streamRowCount += len(rows)
+		go func(batchCount int, rows []*bigquery.TableDataInsertAllRequestRows) {
+			if batchCount == 0 {
+				defer waitGroup.Done()
+			}
+			insertRequest := &bigquery.TableDataInsertAllRequest{}
+			insertRequest.Rows = rows
+			requestCall := it.service.Tabledata.InsertAll(it.projectID, it.datasetID, it.tableDescriptor.Table, insertRequest)
+			response, e := requestCall.Context(it.context).Do()
+			if e != nil {
+				err = e
+				return
+			}
+			if len(response.InsertErrors) > 0 {
+				var messages = make([]string, 0)
+				for _, insertError := range response.InsertErrors {
+					if len(insertError.Errors) > 0 {
+						info, _ := toolbox.AsJSONText(insertError.Errors[0])
+						messages = append(messages, info)
+						break
+					}
+				}
+				if len(messages) > 0 {
+					err = fmt.Errorf("%s", strings.Join(messages, ","))
+				}
+				if err == nil {
+					err = fmt.Errorf("%v", response.InsertErrors[0])
+				}
+			}
+		}(batchCount, rows)
+		batchCount++
+	}
+	waitGroup.Wait() //wait for the first batch only
 	if err != nil {
 		return 0, err
 	}
-	if len(response.InsertErrors) > 0 {
-		for _, insertError := range response.InsertErrors {
-			if len(insertError.Errors) > 0 {
-				return streamRowCount, fmt.Errorf(insertError.Errors[0].Reason + " " + insertError.Errors[0].Message)
-			}
-		}
-		return streamRowCount, fmt.Errorf("unknown error: %v", response)
+	//for testing purposes waits till data gets available in buffer, to supress this wait sets config.params.insertWaitTimeoutInMs=-1
+	errCheck := it.waitForEmptyStreamingBuffer(estimatedRows)
+	if err == nil {
+		err = errCheck
 	}
-	err = it.waitForEmptyStreamingBuffer()
 	return streamRowCount, err
 }
 
-func (it *InsertTask) waitForEmptyStreamingBuffer() error {
+func (it *InsertTask) waitForEmptyStreamingBuffer(estimatedRows int) error {
 	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, 60000)
+	if insertWaitTimeMs <= 0 {
+		return nil
+	}
 	waitSoFarMs := 0
 	for i := 0; ; i++ {
 		tableRequest := it.service.Tables.Get(it.projectID, it.datasetID, it.tableDescriptor.Table)
@@ -228,7 +281,7 @@ func (it *InsertTask) waitForEmptyStreamingBuffer() error {
 		if err != nil {
 			return err
 		}
-		if table.StreamingBuffer == nil || table.StreamingBuffer.EstimatedRows == 0 {
+		if table.StreamingBuffer == nil || table.StreamingBuffer.EstimatedRows == 0 || int(table.StreamingBuffer.EstimatedRows) >= estimatedRows {
 			break
 		}
 		time.Sleep(time.Millisecond * time.Duration(tickInterval*(1+i%20)))

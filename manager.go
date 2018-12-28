@@ -156,9 +156,7 @@ func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sql
 	return dsc.NewSQLResult(int64(0), int64(0)), nil
 }
 
-
-
-func (m *manager) expandSQLParams(sql string, sqlParameters []interface{}, ) string {
+func (m *manager) expandSQLParams(sql string, sqlParameters []interface{}) string {
 	if len(sqlParameters) == 0 {
 		return sql
 	}
@@ -191,7 +189,7 @@ func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sq
 			}
 		}
 	}
-	sql  = m.expandSQLParams(sql, args)
+	sql = m.expandSQLParams(sql, args)
 	sql = m.ExpandSQL(sql, args)
 	iterator, err := NewQueryIterator(m.Manager, sql)
 	if err != nil {
