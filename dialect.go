@@ -205,7 +205,7 @@ func tableSchema(descriptor *dsc.TableDescriptor) (*bigquery.TableSchema, error)
 	return &schema, nil
 }
 
-func (d dialect) CreateTable(manager dsc.Manager, datastore string, tableName string, options string) error {
+func (d dialect) CreateTable(manager dsc.Manager, datastore string, tableName string, specification interface{}) error {
 	config := manager.Config()
 	projectID := config.Get(ProjectIDKey)
 	service, context, err := GetServiceAndContextForManager(manager)
