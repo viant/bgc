@@ -1,3 +1,6 @@
+## Jan 23 2019 0.3.1
+    * Patched show create table with cluster option
+
 ## Dec 28 2018 0.3.0
     * Patched timestamp type bind parameters substitution
     * Paralelize streaming insert 

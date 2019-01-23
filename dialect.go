@@ -302,7 +302,7 @@ func (d dialect) ShowCreateTable(manager dsc.Manager, table string) (string, err
 		for i := 1; i <= len(clusterMap); i++ {
 			clusterColumns = append(clusterColumns, clusterMap[i])
 		}
-		DDL += fmt.Sprintf("CLUSTER BY %v", strings.Join(clusterColumns, "\n"))
+		DDL += fmt.Sprintf(" CLUSTER BY %v", strings.Join(clusterColumns, ",\n"))
 	}
 	return DDL, nil
 }
