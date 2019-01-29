@@ -80,3 +80,7 @@ func GetServiceAndContextForManager(manager dsc.Manager) (*bigquery.Service, con
 	}
 	return service, ctx, nil
 }
+
+func hasPrivateKey(config *dsc.Config) bool {
+	return config.Has(PrivateKey) || config.Has(PrivateKeyPathKey)
+}

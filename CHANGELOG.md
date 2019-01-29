@@ -1,3 +1,6 @@
+## Jan 29 2019 0.5.0
+    * Added default http clinet (to run within GCE, or with GOOGLE_APPLICATION_CREDENTIALS)
+
 ## Jan 23 2019 0.4.1
     * Updated Create Table API signature change
     * Patched show create table with cluster option

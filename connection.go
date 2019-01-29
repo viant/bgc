@@ -2,6 +2,8 @@ package bgc
 
 import (
 	"fmt"
+	"net/http"
+
 	"github.com/viant/dsc"
 	"github.com/viant/toolbox/secret"
 	"golang.org/x/net/context"
@@ -9,13 +11,17 @@ import (
 	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
 	"google.golang.org/api/bigquery/v2"
+	"google.golang.org/api/option"
+	htransport "google.golang.org/api/transport/http"
 	"io/ioutil"
 	"os"
 	"reflect"
 )
 
+var userAgent = "gcloud-golang-bigquery/20160429"
 var bigQueryScope = "https://www.googleapis.com/auth/bigquery"
 var bigQueryInsertScope = "https://www.googleapis.com/auth/bigquery.insertdata"
+var prodAddr = "https://www.googleapis.com/bigquery/v2/"
 
 const (
 	ServiceAccountIdKey = "serviceAccountId"
@@ -127,18 +133,23 @@ func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
 	var authConfig *jwt.Config
 	if config.Credentials != "" {
 		authConfig, err = cp.newAuthConfigWithCredentialsFile()
-	} else {
+	} else if hasPrivateKey(config) {
 		authConfig, err = cp.newAuthConfig()
 	}
-
 	if err != nil {
 		return nil, err
 	}
 
 	ctx := context.Background()
-	oauthClient := oauth2.NewClient(ctx, authConfig.TokenSource(ctx))
-
-	service, err := bigquery.New(oauthClient)
+	var httpClient *http.Client
+	if authConfig != nil {
+		httpClient = oauth2.NewClient(ctx, authConfig.TokenSource(ctx))
+	} else {
+		if httpClient, err = getDefaultClient(ctx); err != nil {
+			return nil, err
+		}
+	}
+	service, err := bigquery.New(httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create bigquery connection - unable to create client:%v", err)
 	}
@@ -147,6 +158,16 @@ func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
 	var super = dsc.NewAbstractConnection(config, cp.ConnectionProvider.ConnectionPool(), connection)
 	bigQueryConnection.AbstractConnection = super
 	return connection, nil
+}
+
+func getDefaultClient(ctx context.Context) (*http.Client, error) {
+	o := []option.ClientOption{
+		option.WithEndpoint(prodAddr),
+		option.WithScopes(bigQueryScope, bigQueryInsertScope),
+		option.WithUserAgent(userAgent),
+	}
+	httpClient, _, err := htransport.NewClient(ctx, o...)
+	return httpClient, err
 }
 
 func newConnectionProvider(config *dsc.Config) dsc.ConnectionProvider {
