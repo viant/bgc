@@ -176,7 +176,6 @@ func (m *manager) expandSQLParams(sql string, sqlParameters []interface{}) strin
 }
 
 func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sql string, args []interface{}, readingHandler func(scanner dsc.Scanner) (toContinue bool, err error)) error {
-
 	var queryInfo *QueryResultInfo
 	var argLen = len(args)
 	if len(args) > 0 {
@@ -195,12 +194,8 @@ func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sq
 	if err != nil {
 		return fmt.Errorf("failed to get new query iterator %v %v", sql, err)
 	}
-
 	defer func() {
 		if queryInfo != nil {
-
-			fmt.Printf("SETTING: %v\n", iterator.resultInfo)
-
 			queryInfo.CacheHit = iterator.resultInfo.CacheHit
 			queryInfo.TotalRows = iterator.resultInfo.TotalRows
 			queryInfo.TotalBytesProcessed = iterator.resultInfo.TotalBytesProcessed
