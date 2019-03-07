@@ -34,6 +34,7 @@ type InsertTask struct {
 	waitForCompletion bool
 	manager           dsc.Manager
 	insertMethod      string
+	columns           map[string]dsc.Column
 }
 
 //InsertSingle streams single records into big query.
@@ -94,24 +95,40 @@ func normalizeValue(value interface{}) (interface{}, bool) {
 	return value, true
 }
 
-func asJSONMap(record interface{}) map[string]bigquery.JsonValue {
+func (it *InsertTask) asJSONMap(record interface{}) map[string]bigquery.JsonValue {
 	var jsonValues = make(map[string]bigquery.JsonValue)
 	for k, v := range toolbox.AsMap(record) {
 		val, ok := normalizeValue(v)
 		if !ok {
 			continue
 		}
+		if column, ok := it.columns[k]; ok {
+			switch strings.ToLower(column.DatabaseTypeName()) {
+			case "boolean":
+				val = toolbox.AsBoolean(val)
+			case "float":
+				val = toolbox.AsFloat(val)
+			}
+		}
 		jsonValues[k] = val
 	}
 	return jsonValues
 }
 
-func asMap(record interface{}) map[string]interface{} {
+func (it *InsertTask) asMap(record interface{}) map[string]interface{} {
 	var jsonValues = make(map[string]interface{})
 	for k, v := range toolbox.AsMap(record) {
 		val, ok := normalizeValue(v)
 		if !ok {
 			continue
+		}
+		if column, ok := it.columns[k]; ok {
+			switch strings.ToLower(column.DatabaseTypeName()) {
+			case "boolean":
+				val = toolbox.AsBoolean(val)
+			case "float":
+				val = toolbox.AsFloat(val)
+			}
 		}
 		jsonValues[k] = val
 	}
@@ -134,13 +151,13 @@ func (it *InsertTask) buildLoadData(data interface{}) (io.Reader, int, error) {
 	if ok {
 		if err := ranger.Range(func(item interface{}) (bool, error) {
 			count++
-			return true, compressed.Append(asMap(item))
+			return true, compressed.Append(it.asMap(item))
 		}); err != nil {
 			return nil, 0, err
 		}
 	} else if toolbox.IsSlice(data) {
 		for _, item := range toolbox.AsSlice(data) {
-			if err := compressed.Append(asMap(item)); err != nil {
+			if err := compressed.Append(it.asMap(item)); err != nil {
 				return nil, 0, err
 			}
 			count++
@@ -150,6 +167,10 @@ func (it *InsertTask) buildLoadData(data interface{}) (io.Reader, int, error) {
 	}
 	reader, err := compressed.GetAndClose()
 	return reader, count, err
+}
+
+func (it *InsertTask) normalizeDataType(record map[string]interface{}) {
+
 }
 
 //InsertAll streams all records into big query, returns number records streamed or error.
@@ -217,7 +238,7 @@ func (it *InsertTask) StreamAll(data interface{}) (int, error) {
 		var rows = make([]*bigquery.TableDataInsertAllRequestRows, 0)
 		for ; i < len(records); i++ {
 			record := buildRecord(toolbox.AsMap(records[i]))
-			rows = append(rows, &bigquery.TableDataInsertAllRequestRows{InsertId: it.insertID(record), Json: asJSONMap(record)})
+			rows = append(rows, &bigquery.TableDataInsertAllRequestRows{InsertId: it.insertID(record), Json: it.asJSONMap(record)})
 			if len(rows) >= streamBatchCount {
 				break
 			}
@@ -325,6 +346,17 @@ func NewInsertTask(manager dsc.Manager, table *dsc.TableDescriptor, waitForCompl
 		return nil, err
 	}
 	insertMethod := config.GetString(fmt.Sprintf("%v.insertMethod", table.Table), InsertMethodLoad)
+	dialect := dialect{}
+
+	datastore, _ := dialect.GetCurrentDatastore(manager)
+
+	var columns = make(map[string]dsc.Column)
+
+	if dscColumns, err := dialect.GetColumns(manager, datastore, table.Table); err == nil {
+		for _, column := range dscColumns {
+			columns[column.Name()] = column
+		}
+	}
 	return &InsertTask{
 		tableDescriptor:   table,
 		service:           service,
@@ -334,5 +366,6 @@ func NewInsertTask(manager dsc.Manager, table *dsc.TableDescriptor, waitForCompl
 		waitForCompletion: waitForCompletion,
 		projectID:         config.Get(ProjectIDKey),
 		datasetID:         config.Get(DataSetIDKey),
+		columns:           columns,
 	}, nil
 }
