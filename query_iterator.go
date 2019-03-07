@@ -3,11 +3,12 @@ package bgc
 import (
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
 	"google.golang.org/api/bigquery/v2"
-	"strings"
-	"time"
 )
 
 var useLegacySQL = "/* USE LEGACY SQL */"
@@ -112,8 +113,6 @@ func convertValue(value interface{}, field *bigquery.TableFieldSchema) (interfac
 
 //Next returns next row.
 func (qi *QueryIterator) Next() ([]interface{}, error) {
-	qi.processedRows++
-	qi.rowsIndex++
 	if int(qi.rowsIndex) >= len(qi.Rows) {
 		err := qi.fetchPage()
 		if err != nil {
@@ -121,6 +120,8 @@ func (qi *QueryIterator) Next() ([]interface{}, error) {
 		}
 	}
 	row := qi.Rows[qi.rowsIndex]
+	qi.processedRows++
+	qi.rowsIndex++
 	fields := qi.schema.Fields
 	var values = make([]interface{}, 0)
 	for i, cell := range row.F {
