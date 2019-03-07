@@ -18,7 +18,7 @@ import (
 	"reflect"
 )
 
-var userAgent = "gcloud-golang-bigquery/20160429"
+var userAgent = "bgc/0.5.0"
 var bigQueryScope = "https://www.googleapis.com/auth/bigquery"
 var bigQueryInsertScope = "https://www.googleapis.com/auth/bigquery.insertdata"
 var prodAddr = "https://www.googleapis.com/bigquery/v2/"
