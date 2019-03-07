@@ -1,3 +1,6 @@
+## Jan 29 2019 0.5.2
+    * Fix QueryIterator rowsIndex
+
 ## Jan 29 2019 0.5.0
     * Added default http clinet (to run within GCE, or with GOOGLE_APPLICATION_CREDENTIALS)
 
