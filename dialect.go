@@ -246,6 +246,9 @@ func (d dialect) GetColumns(manager dsc.Manager, datastore, table string) ([]dsc
 	if err != nil {
 		return result, err
 	}
+	if bqTable.Schema == nil {
+		return nil, fmt.Errorf("table schema was empty %v", table)
+	}
 	for _, column := range bqTable.Schema.Fields {
 		var tableColumn = dsc.NewSimpleColumn(column.Name, column.Type)
 		result = append(result, tableColumn)

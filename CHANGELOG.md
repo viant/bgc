@@ -1,3 +1,6 @@
+## Jan 29 2019 0.5.3
+    * Patched streaming wait for test data
+
 ## Jan 29 2019 0.5.2
     * Fix QueryIterator rowsIndex
 

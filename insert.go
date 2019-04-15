@@ -9,6 +9,7 @@ import (
 	"google.golang.org/api/bigquery/v2"
 	"google.golang.org/api/googleapi"
 	"io"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -214,26 +215,35 @@ func (it *InsertTask) Insert(reader io.Reader) error {
 	return err
 }
 
+func (it *InsertTask) getRowCount() (int, error) {
+	record := []int{}
+	_, err := it.manager.ReadSingle(&record, "SELECT COUNT(1) FROM "+it.tableDescriptor.Table, nil, nil)
+	if err != nil {
+		return 0, err
+	}
+	if len(record) > 0 {
+		return record[0], nil
+	}
+	return 0, nil
+
+}
+
 //InsertAll streams all records into big query, returns number records streamed or error.
 func (it *InsertTask) StreamAll(data interface{}) (int, error) {
 	records := toolbox.AsSlice(data)
-
-	estimatedRows := len(records)
-	tableRequest := it.service.Tables.Get(it.projectID, it.datasetID, it.tableDescriptor.Table)
-	if table, err := tableRequest.Context(it.context).Do(); err == nil {
-		if table.StreamingBuffer != nil {
-			estimatedRows += int(table.StreamingBuffer.EstimatedRows)
+	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, 60000)
+	estimatedRowCount := len(records)
+	if insertWaitTimeMs >= 0 {
+		if count, err := it.getRowCount(); err == nil {
+			estimatedRowCount += count
 		}
 	}
-
 	streamBatchCount := it.manager.Config().GetInt(StreamBatchCount, 9999)
 	i := 0
 	batchCount := 0
 	streamRowCount := 0
 	var err error
-	var waitGroup = sync.WaitGroup{}
-	waitGroup.Add(1)
-
+	var waitGroup = &sync.WaitGroup{}
 	for i < len(records) {
 		var rows = make([]*bigquery.TableDataInsertAllRequestRows, 0)
 		for ; i < len(records); i++ {
@@ -247,10 +257,14 @@ func (it *InsertTask) StreamAll(data interface{}) (int, error) {
 			break
 		}
 		streamRowCount += len(rows)
+		waitGroup.Add(1)
 		go func(batchCount int, rows []*bigquery.TableDataInsertAllRequestRows) {
-			if batchCount == 0 {
-				defer waitGroup.Done()
-			}
+			defer func() {
+				waitGroup.Done()
+				if err != nil {
+					log.Print(err)
+				}
+			}()
 			insertRequest := &bigquery.TableDataInsertAllRequest{}
 			insertRequest.Rows = rows
 			requestCall := it.service.Tabledata.InsertAll(it.projectID, it.datasetID, it.tableDescriptor.Table, insertRequest)
@@ -278,36 +292,37 @@ func (it *InsertTask) StreamAll(data interface{}) (int, error) {
 		}(batchCount, rows)
 		batchCount++
 	}
-	waitGroup.Wait() //wait for the first batch only
+	if batchCount > 0 {
+		waitGroup.Wait() //wait for the first batch only
+	}
 	if err != nil {
 		return 0, err
 	}
-	//for testing purposes waits till data gets available in buffer, to supress this wait sets config.params.insertWaitTimeoutInMs=-1
-	errCheck := it.waitForEmptyStreamingBuffer(estimatedRows)
+	//for testing purposes waits till data gets available in table, to supress this wait sets config.params.insertWaitTimeoutInMs=-1
+	errCheck := it.waitForData(estimatedRowCount)
 	if err == nil {
 		err = errCheck
 	}
 	return streamRowCount, err
 }
 
-func (it *InsertTask) waitForEmptyStreamingBuffer(estimatedRows int) error {
-	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, 60000)
+func (it *InsertTask) waitForData(estimatedRowCount int) error {
+	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, 30000)
 	if insertWaitTimeMs <= 0 {
 		return nil
 	}
-	waitSoFarMs := 0
+	timeout := time.Millisecond * time.Duration(insertWaitTimeMs)
+	startTime := time.Now()
 	for i := 0; ; i++ {
-		tableRequest := it.service.Tables.Get(it.projectID, it.datasetID, it.tableDescriptor.Table)
-		table, err := tableRequest.Context(it.context).Do()
+		count, err := it.getRowCount()
 		if err != nil {
 			return err
 		}
-		if table.StreamingBuffer == nil || table.StreamingBuffer.EstimatedRows == 0 || int(table.StreamingBuffer.EstimatedRows) >= estimatedRows {
+		if count >= estimatedRowCount {
 			break
 		}
-		time.Sleep(time.Millisecond * time.Duration(tickInterval*(1+i%20)))
-		waitSoFarMs += tickInterval
-		if waitSoFarMs > insertWaitTimeMs {
+		time.Sleep(time.Second)
+		if time.Now().Sub(startTime) >= timeout {
 			break
 		}
 	}
