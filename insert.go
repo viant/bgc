@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
-	"github.com/viant/toolbox/data"
 	"golang.org/x/net/context"
 	"google.golang.org/api/bigquery/v2"
 	"google.golang.org/api/googleapi"
@@ -136,14 +135,6 @@ func (it *InsertTask) asMap(record interface{}) map[string]interface{} {
 	return jsonValues
 }
 
-func buildRecord(record map[string]interface{}) map[string]interface{} {
-	result := data.NewMap()
-	for k, v := range toolbox.AsMap(record) {
-		result.SetValue(k, v)
-	}
-	return toolbox.DeleteEmptyKeys(result)
-}
-
 func (it *InsertTask) buildLoadData(data interface{}) (io.Reader, int, error) {
 	compressed := NewCompressed(nil)
 	ranger, ok := data.(toolbox.Ranger)
@@ -247,7 +238,7 @@ func (it *InsertTask) StreamAll(data interface{}) (int, error) {
 	for i < len(records) {
 		var rows = make([]*bigquery.TableDataInsertAllRequestRows, 0)
 		for ; i < len(records); i++ {
-			record := buildRecord(toolbox.AsMap(records[i]))
+			record := toolbox.AsMap(records[i])
 			rows = append(rows, &bigquery.TableDataInsertAllRequestRows{InsertId: it.insertID(record), Json: it.asJSONMap(record)})
 			if len(rows) >= streamBatchCount {
 				break
