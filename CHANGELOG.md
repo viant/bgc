@@ -1,3 +1,10 @@
+## Jan 29 2019 0.6.0
+    * Expose the following configuration parameters:
+        - insertIdColumn
+        - streamBatchCount
+        - insertWaitTimeoutInMs
+        - insertMaxRetires
+
 ## Jan 29 2019 0.5.3
     * Patched streaming wait for test data
 
