@@ -317,6 +317,7 @@ func (it *InsertTask) StreamAll(data interface{}) (int, error) {
 				insertError = toInsertError(insertCall.InsertErrors)
 			}
 			if insertError != nil {
+				log.Print(insertError)
 				err = insertError
 				return
 			}
