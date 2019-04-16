@@ -239,4 +239,4 @@ all compatible with Apache License, Version 2. Please see individual files for d
 
 **Library Author:** Adrian Witas
 
-**Contributors:**Mikhail Berlyant
+**Contributors:** Mikhail Berlyant
