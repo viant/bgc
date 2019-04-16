@@ -18,10 +18,14 @@ const (
 	InsertMethodStream       = "stream"
 	InsertMethodLoad         = "load"
 	InsertWaitTimeoutInMsKey = "insertWaitTimeoutInMs"
+	InsertIdColumn           = "insertIdColumn"
 	StreamBatchCount         = "streamBatchCount" //can not be more than 10000
 	jsonFormat               = "NEWLINE_DELIMITED_JSON"
 	createIfNeeded           = "CREATE_IF_NEEDED"
 	writeAppend              = "WRITE_APPEND"
+	InsertMaxRetires         = "insertMaxRetires"
+	defaultInsertWaitTime    = 60000
+	defaultInsertMaxRetries  = 2
 )
 
 //InsertTask represents insert streaming task.
@@ -34,6 +38,8 @@ type InsertTask struct {
 	waitForCompletion bool
 	manager           dsc.Manager
 	insertMethod      string
+	insertIdColumn    string
+	maxRetries        int
 	columns           map[string]dsc.Column
 }
 
@@ -44,6 +50,10 @@ func (it *InsertTask) InsertSingle(record map[string]interface{}) error {
 }
 
 func (it *InsertTask) insertID(record map[string]interface{}) string {
+	if it.insertIdColumn != "" {
+		id := toolbox.AsString(record[it.insertIdColumn])
+		return id
+	}
 	pkValue := ""
 	for _, pkColumn := range it.tableDescriptor.PkColumns {
 		pkValue = pkValue + toolbox.AsString(record[pkColumn])
@@ -194,6 +204,7 @@ func (it *InsertTask) Insert(reader io.Reader) error {
 			},
 		},
 	}
+
 	call := it.service.Jobs.Insert(it.projectID, req)
 	call = call.Media(reader, googleapi.ContentType("application/octet-stream"))
 	job, err := call.Do()
@@ -201,7 +212,11 @@ func (it *InsertTask) Insert(reader io.Reader) error {
 		jobJSON, _ := toolbox.AsIndentJSONText(req)
 		return fmt.Errorf("failed to submit insert job: %v, %v", jobJSON, err)
 	}
-	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, 20000)
+
+	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, defaultInsertWaitTime)
+	if insertWaitTimeMs <= 0 {
+		return nil
+	}
 	_, err = waitForJobCompletion(it.service, it.context, it.projectID, job.JobReference.JobId, insertWaitTimeMs)
 	return err
 }
@@ -219,10 +234,51 @@ func (it *InsertTask) getRowCount() (int, error) {
 
 }
 
+func (it *InsertTask) streamRows(rows []*bigquery.TableDataInsertAllRequestRows) (*bigquery.TableDataInsertAllResponse, error) {
+	var response *bigquery.TableDataInsertAllResponse
+	var err error
+	for i := 0; i < it.maxRetries; i++ {
+		insertRequest := &bigquery.TableDataInsertAllRequest{}
+		insertRequest.Rows = rows
+		requestCall := it.service.Tabledata.InsertAll(it.projectID, it.datasetID, it.tableDescriptor.Table, insertRequest)
+
+		if response, err = requestCall.Context(it.context).Do(); isInternalServerError(err) {
+			log.Printf("retrying %v", err)
+			log.Printf("no insertIdColumn - duplicates expected")
+			if i+i >= it.maxRetries {
+				continue
+			}
+			time.Sleep(time.Duration(1+i) * time.Second)
+			continue
+		}
+		break
+
+	}
+	return response, err
+}
+
+func toInsertError(insertErrors []*bigquery.TableDataInsertAllResponseInsertErrors) error {
+	if insertErrors == nil {
+		return nil
+	}
+	var messages = make([]string, 0)
+	for _, insertError := range insertErrors {
+		if len(insertError.Errors) > 0 {
+			info, _ := toolbox.AsJSONText(insertError.Errors[0])
+			messages = append(messages, info)
+			break
+		}
+	}
+	if len(messages) > 0 {
+		return fmt.Errorf("%s", strings.Join(messages, ","))
+	}
+	return fmt.Errorf("%v", insertErrors[0])
+}
+
 //InsertAll streams all records into big query, returns number records streamed or error.
 func (it *InsertTask) StreamAll(data interface{}) (int, error) {
 	records := toolbox.AsSlice(data)
-	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, 60000)
+	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, defaultInsertWaitTime)
 	estimatedRowCount := len(records)
 	if insertWaitTimeMs >= 0 {
 		if count, err := it.getRowCount(); err == nil {
@@ -256,29 +312,13 @@ func (it *InsertTask) StreamAll(data interface{}) (int, error) {
 					log.Print(err)
 				}
 			}()
-			insertRequest := &bigquery.TableDataInsertAllRequest{}
-			insertRequest.Rows = rows
-			requestCall := it.service.Tabledata.InsertAll(it.projectID, it.datasetID, it.tableDescriptor.Table, insertRequest)
-			response, e := requestCall.Context(it.context).Do()
-			if e != nil {
-				err = e
-				return
+			insertCall, insertError := it.streamRows(rows)
+			if insertError == nil {
+				insertError = toInsertError(insertCall.InsertErrors)
 			}
-			if len(response.InsertErrors) > 0 {
-				var messages = make([]string, 0)
-				for _, insertError := range response.InsertErrors {
-					if len(insertError.Errors) > 0 {
-						info, _ := toolbox.AsJSONText(insertError.Errors[0])
-						messages = append(messages, info)
-						break
-					}
-				}
-				if len(messages) > 0 {
-					err = fmt.Errorf("%s", strings.Join(messages, ","))
-				}
-				if err == nil {
-					err = fmt.Errorf("%v", response.InsertErrors[0])
-				}
+			if insertError != nil {
+				err = insertError
+				return
 			}
 		}(batchCount, rows)
 		batchCount++
@@ -298,7 +338,7 @@ func (it *InsertTask) StreamAll(data interface{}) (int, error) {
 }
 
 func (it *InsertTask) waitForData(estimatedRowCount int) error {
-	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, 30000)
+	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, defaultInsertWaitTime)
 	if insertWaitTimeMs <= 0 {
 		return nil
 	}
@@ -312,7 +352,7 @@ func (it *InsertTask) waitForData(estimatedRowCount int) error {
 		if count >= estimatedRowCount {
 			break
 		}
-		time.Sleep(time.Second)
+		time.Sleep(2 * time.Second)
 		if time.Now().Sub(startTime) >= timeout {
 			break
 		}
@@ -324,11 +364,12 @@ func (it *InsertTask) waitForData(estimatedRowCount int) error {
 func (it *InsertTask) InsertAll(data interface{}) (int, error) {
 	var count int
 	var err error
-	var retrySleepMs = 2000
-	for i := 0; i < 3; i++ {
-		count, err = it.insertAll(data)
-		if err != nil && strings.Contains(err.Error(), "Error 503") {
-			time.Sleep(time.Duration(retrySleepMs*(1+i)) * time.Millisecond)
+	for i := 0; i < it.maxRetries; i++ {
+		if count, err = it.insertAll(data); isInternalServerError(err) {
+			if i+i >= it.maxRetries {
+				continue
+			}
+			time.Sleep(time.Duration(i+1) * time.Second)
 			continue
 		}
 		break
@@ -352,6 +393,7 @@ func NewInsertTask(manager dsc.Manager, table *dsc.TableDescriptor, waitForCompl
 		return nil, err
 	}
 	insertMethod := config.GetString(fmt.Sprintf("%v.insertMethod", table.Table), InsertMethodLoad)
+	insertIdColumn := config.GetString(fmt.Sprintf("%v.%v", table.Table, InsertIdColumn), "")
 	dialect := dialect{}
 
 	datastore, _ := dialect.GetCurrentDatastore(manager)
@@ -363,11 +405,20 @@ func NewInsertTask(manager dsc.Manager, table *dsc.TableDescriptor, waitForCompl
 			columns[column.Name()] = column
 		}
 	}
+	if _, has := columns[insertIdColumn]; !has {
+		insertIdColumn = ""
+	}
+	maxRetries := config.GetInt(InsertMaxRetires, defaultInsertMaxRetries)
+	if maxRetries == 0 {
+		maxRetries = 1
+	}
 	return &InsertTask{
 		tableDescriptor:   table,
 		service:           service,
+		maxRetries:        maxRetries,
 		context:           ctx,
 		manager:           manager,
+		insertIdColumn:    insertIdColumn,
 		insertMethod:      insertMethod,
 		waitForCompletion: waitForCompletion,
 		projectID:         config.Get(ProjectIDKey),

@@ -7,6 +7,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/api/bigquery/v2"
 	"math"
+	"strings"
 	"time"
 )
 
@@ -83,4 +84,11 @@ func GetServiceAndContextForManager(manager dsc.Manager) (*bigquery.Service, con
 
 func hasPrivateKey(config *dsc.Config) bool {
 	return config.Has(PrivateKey) || config.Has(PrivateKeyPathKey)
+}
+
+func isInternalServerError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), " 503")
 }

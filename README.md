@@ -16,18 +16,52 @@ Please refer to [`CHANGELOG.md`](CHANGELOG.md) if you encounter breaking changes
 
 This library uses SQL mode and streaming API to insert data as default.
 To use legacy SQL please use the following /* USE LEGACY SQL */ hint, in this case you will not be able to fetch repeated and nested fields.
+
+
+#### Configuration parameters
+
+###### insertMethod
 To control insert method just provide config.parameters with the following value:
     
     _table_name_.insertMethod = "load"
 
 Note that if streaming is used, currently UPDATE and DELETE statements are not supported.
 
+###### insertIdColumn
+For streaming you can specify which column to use as insertId with the following config.params    
+    
+    _table_name_.insertMethod = "stream"
+    _table_name_.insertIdColumn = "sessionId"
+
+###### streamBatchCount
+
+streamBatchCount controls row cound in batch (default 9999)
+
+###### insertWaitTimeoutInMs
+
+When inserting data data this library checks upto 60 sec if data has been added.
+Tto control this behabiou you can set insertWaitTimeoutInMs (default 60 sec)
+To disable this mechanism set:
+     insertWaitTimeoutInMs: -1
+
+###### insertMaxRetires
+
+Retries insert when 503 internal error
+
+###### datasetId 
+
+Default dataset
+
 
 ## Credentials
 
 1. Google secrets for service account
 
-a) credential can be a name with extension of the JSON secret file placed into ~/.secret/ folder
+
+a) set GOOGLE_APPLICATION_CREDENTIALS environment variable
+
+
+b) credential can be a name with extension of the JSON secret file placed into ~/.secret/ folder
 
 config.yaml
 ```yaml
@@ -37,7 +71,7 @@ parameters:
   datasetId: myDataset
 ```
 
-b) full URL to secret file
+c) full URL to secret file
 
 config.yaml
 ```yaml
@@ -74,7 +108,6 @@ parameters:
   projectId: spheric-arcadia-98015
   privateKeyPath: /tmp/secret/bq.pem
 ```
-
 
 
 
