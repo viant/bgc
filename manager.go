@@ -3,10 +3,9 @@ package bgc
 import (
 	"database/sql"
 	"fmt"
-	"reflect"
-
 	"github.com/viant/dsc"
 	"github.com/viant/toolbox"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -43,57 +42,18 @@ func (m *manager) PersistAllOnConnection(connection dsc.Connection, dataPointer 
 	if err != nil {
 		return 0, 0, err
 	}
-
 	insertables, updatables, err := m.ClassifyDataAsInsertableOrUpdatable(connection, dataPointer, table, provider)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to persist data unable to classify as insertable or updatable %v", err)
 	}
-	if len(updatables) > 0 {
-		for _, row := range updatables {
-			parametrizerSQL := provider.Get(dsc.SQLTypeUpdate, row)
-			parser := dsc.NewDmlParser()
-			statement, err := parser.Parse(parametrizerSQL.SQL)
-			if err != nil {
-				return 0, 0, err
-			}
-			resultset, err := m.Execute(statement.SQL, statement.Values...)
-			if err != nil {
-				return 0, 0, err
-			}
-			affected, _ := resultset.RowsAffected()
-			updated += int(affected)
-		}
+	if updated, err = m.processUpdates(updatables, provider); err != nil {
+		return 0, 0, err
 	}
-
-	if len(insertables) > 0 {
-		m.Acquire()
-		var rows = make([]map[string]interface{}, 0)
-		for _, row := range insertables {
-			parametrizedSQL := provider.Get(dsc.SQLTypeInsert, row)
-			parser := dsc.NewDmlParser()
-			statement, err := parser.Parse(parametrizedSQL.SQL)
-			if err != nil {
-				return 0, 0, err
-			}
-			parameters := toolbox.NewSliceIterator(parametrizedSQL.Values)
-			valueMap, _ := statement.ColumnValueMap(parameters)
-			rows = append(rows, valueMap)
-		}
-		tableDescriptor := m.TableDescriptorRegistry().Get(table)
-		task, err := NewInsertTask(m.Manager, tableDescriptor, true)
-		if err != nil {
-			return 0, 0, fmt.Errorf("failed to prepare insert task on %v, due to %v", table, err)
-		}
-		inserted, err = task.InsertAll(rows)
-		if err != nil {
-			return 0, 0, fmt.Errorf("failed to insert data on %v, due to %v", table, err)
-		}
+	if inserted, err = m.batchInsert(insertables, table, provider); err != nil {
+		return 0, 0, err
 	}
 	return inserted, updated, nil
 }
-
-
-
 
 func (m *manager) runInsert(connection dsc.Connection, sql string, sqlParameters []interface{}) (result sql.Result, err error) {
 	parser := dsc.NewDmlParser()
@@ -101,7 +61,6 @@ func (m *manager) runInsert(connection dsc.Connection, sql string, sqlParameters
 	if err != nil {
 		return nil, err
 	}
-
 	switch statement.Type {
 	case "INSERT":
 		parameters := toolbox.NewSliceIterator(sqlParameters)
@@ -109,18 +68,11 @@ func (m *manager) runInsert(connection dsc.Connection, sql string, sqlParameters
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare insert data due to %v", err)
 		}
-		tableDescriptor := m.TableDescriptorRegistry().Get(statement.Table)
-		task, err := NewInsertTask(m.Manager, tableDescriptor, true)
+		inserted, err := m.insertRecords(statement.Table, []map[string]interface{}{values})
 		if err != nil {
-			return nil, fmt.Errorf("failed to prepare insert task on %v, due to %v", statement.Table, err)
+			return nil, err
 		}
-
-		err = task.InsertSingle(values)
-		if err != nil {
-			return nil, fmt.Errorf("failed to insert data %v, %v", statement.Table, err)
-		}
-		return dsc.NewSQLResult(int64(1), int64(0)), nil
-
+		return dsc.NewSQLResult(int64(inserted), int64(0)), nil
 	default:
 		return nil, fmt.Errorf("%v is not supproted at m time", statement.Type)
 	}
@@ -150,7 +102,6 @@ func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sql
 		datasetID: config.Get(DataSetIDKey),
 	}
 	sql = m.expandSQLParams(sql, sqlParameters)
-
 	job, err := queryTask.run(sql)
 	if err != nil {
 		return nil, err
@@ -180,49 +131,46 @@ func (m *manager) expandSQLParams(sql string, sqlParameters []interface{}) strin
 	return sql
 }
 
-func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sql string, args []interface{}, readingHandler func(scanner dsc.Scanner) (toContinue bool, err error)) error {
-	m.Acquire()
+func tryAssignQueryResultInfo(args []interface{}) ([]interface{}, *QueryResultInfo) {
 	var queryInfo *QueryResultInfo
-	var argLen = len(args)
-	if len(args) > 0 {
-		if info, ok := args[len(args)-1].(*QueryResultInfo); ok {
-			queryInfo = info
-			if argLen == 1 {
-				args = []interface{}{}
-			} else {
-				args = args[:len(args)-1]
-			}
+	var ok bool
+	if len(args) == 0 {
+		return args, queryInfo
+	}
+	if queryInfo, ok = args[len(args)-1].(*QueryResultInfo); ok {
+		if len(args) == 1 {
+			args = []interface{}{}
+		} else {
+			args = args[:len(args)-1]
 		}
 	}
+	return args, queryInfo
+}
+
+func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sql string, args []interface{}, readingHandler func(scanner dsc.Scanner) (toContinue bool, err error)) error {
+	m.Acquire()
+	args, queryInfo := tryAssignQueryResultInfo(args)
 	sql = m.expandSQLParams(sql, args)
 	sql = m.ExpandSQL(sql, args)
 	iterator, err := NewQueryIterator(m.Manager, sql)
 	if err != nil {
 		return fmt.Errorf("failed to get new query iterator %v %v", sql, err)
 	}
-	defer func() {
-		if queryInfo != nil {
-			queryInfo.CacheHit = iterator.resultInfo.CacheHit
-			queryInfo.TotalRows = iterator.resultInfo.TotalRows
-			queryInfo.TotalBytesProcessed = iterator.resultInfo.TotalBytesProcessed
-		}
-	}()
+	defer queryInfo.Set(iterator.resultInfo)
 	var biqQueryScanner *scanner
 	for iterator.HasNext() {
 		if biqQueryScanner == nil {
 			biqQueryScanner = newScaner(m.Config())
-			columns, err := iterator.GetColumns()
-			if err != nil {
+			if biqQueryScanner.columns, err = iterator.GetColumns(); err != nil {
 				return fmt.Errorf("failed to read bigquery %v - unable to read query schema due to:\n\t%v", sql, err)
 			}
-			biqQueryScanner.columns = columns
 		}
 		values, err := iterator.Next()
 		if err != nil {
 			return fmt.Errorf("failed to read bigquery %v - unable to fetch values due to:\n\t%v", sql, err)
 		}
 		biqQueryScanner.Values = values
-		var scanner dsc.Scanner = biqQueryScanner
+		scanner := biqQueryScanner
 		toContinue, err := readingHandler(scanner)
 		if err != nil {
 			return fmt.Errorf("failed to read bigquery %v - unable to map recrod %v", sql, err)
@@ -232,6 +180,61 @@ func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sq
 		}
 	}
 	return nil
+}
+
+func (m *manager) processUpdates(records []interface{}, provider dsc.DmlProvider) (int, error) {
+	if len(records) == 0 {
+		return 0, nil
+	}
+	updated := 0
+	for _, row := range records {
+		parametrizedSQL := provider.Get(dsc.SQLTypeUpdate, row)
+		parser := dsc.NewDmlParser()
+		statement, err := parser.Parse(parametrizedSQL.SQL)
+		if err != nil {
+			return 0, err
+		}
+		resultset, err := m.Execute(statement.SQL, statement.Values...)
+		if err != nil {
+			return 0, err
+		}
+		affected, _ := resultset.RowsAffected()
+		updated += int(affected)
+	}
+	return updated, nil
+}
+
+func (m *manager) batchInsert(insertables []interface{}, table string, provider dsc.DmlProvider) (int, error) {
+	if len(insertables) == 0 {
+		return 0, nil
+	}
+	var records = make([]map[string]interface{}, 0)
+	for _, row := range insertables {
+		parametrizedSQL := provider.Get(dsc.SQLTypeInsert, row)
+		parser := dsc.NewDmlParser()
+		statement, err := parser.Parse(parametrizedSQL.SQL)
+		if err != nil {
+			return 0, err
+		}
+		parameters := toolbox.NewSliceIterator(parametrizedSQL.Values)
+		valueMap, _ := statement.ColumnValueMap(parameters)
+		records = append(records, valueMap)
+	}
+	return m.insertRecords(table, records)
+}
+
+func (m *manager) insertRecords(table string, records []map[string]interface{}) (int, error) {
+	m.Acquire()
+	tableDescriptor := m.TableDescriptorRegistry().Get(table)
+	task, err := NewInsertTask(m.Manager, tableDescriptor, true)
+	if err != nil {
+		return 0, fmt.Errorf("failed to prepare insert task on %v, due to %v", table, err)
+	}
+	inserted, err := task.InsertAll(records)
+	if err != nil {
+		return 0, fmt.Errorf("failed to insert data on %v, due to %v", table, err)
+	}
+	return inserted, nil
 }
 
 func newConfig(cfg *dsc.Config) *config {
