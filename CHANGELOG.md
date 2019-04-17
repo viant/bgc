@@ -1,4 +1,7 @@
-## Jan 29 2019 0.6.0
+## April 16 2019 0.6.1
+    * Added rate limiter
+
+## April 15 2019 0.6.0
     * Expose the following configuration parameters:
         - insertIdColumn
         - streamBatchCount

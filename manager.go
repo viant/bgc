@@ -123,6 +123,7 @@ func (m *manager) runInsert(connection dsc.Connection, sql string, sqlParameters
 }
 
 func (m *manager) ExecuteOnConnection(connection dsc.Connection, sql string, sqlParameters []interface{}) (result sql.Result, err error) {
+	m.Acquire()
 	sql = strings.TrimSpace(sql)
 	lowerCaseSQL := strings.ToLower(sql)
 	if strings.HasPrefix(lowerCaseSQL, "delete") {
@@ -176,6 +177,7 @@ func (m *manager) expandSQLParams(sql string, sqlParameters []interface{}) strin
 }
 
 func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sql string, args []interface{}, readingHandler func(scanner dsc.Scanner) (toContinue bool, err error)) error {
+	m.Acquire()
 	var queryInfo *QueryResultInfo
 	var argLen = len(args)
 	if len(args) > 0 {
