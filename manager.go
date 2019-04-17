@@ -24,6 +24,7 @@ type manager struct {
 }
 
 func (m *manager) PersistData(connection dsc.Connection, data interface{}, table string, keySetter dsc.KeySetter, sqlProvider func(item interface{}) *dsc.ParametrizedSQL) (int, error) {
+	m.Acquire()
 	tableDescriptor := m.TableDescriptorRegistry().Get(table)
 	task, err := NewInsertTask(m.Manager, tableDescriptor, true)
 	if err != nil {
@@ -65,19 +66,19 @@ func (m *manager) PersistAllOnConnection(connection dsc.Connection, dataPointer 
 	}
 
 	if len(insertables) > 0 {
+		m.Acquire()
 		var rows = make([]map[string]interface{}, 0)
 		for _, row := range insertables {
-			parametrizerSQL := provider.Get(dsc.SQLTypeInsert, row)
+			parametrizedSQL := provider.Get(dsc.SQLTypeInsert, row)
 			parser := dsc.NewDmlParser()
-			statement, err := parser.Parse(parametrizerSQL.SQL)
+			statement, err := parser.Parse(parametrizedSQL.SQL)
 			if err != nil {
 				return 0, 0, err
 			}
-			parameters := toolbox.NewSliceIterator(parametrizerSQL.Values)
+			parameters := toolbox.NewSliceIterator(parametrizedSQL.Values)
 			valueMap, _ := statement.ColumnValueMap(parameters)
 			rows = append(rows, valueMap)
 		}
-
 		tableDescriptor := m.TableDescriptorRegistry().Get(table)
 		task, err := NewInsertTask(m.Manager, tableDescriptor, true)
 		if err != nil {
