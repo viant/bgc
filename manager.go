@@ -92,6 +92,9 @@ func (m *manager) PersistAllOnConnection(connection dsc.Connection, dataPointer 
 	return inserted, updated, nil
 }
 
+
+
+
 func (m *manager) runInsert(connection dsc.Connection, sql string, sqlParameters []interface{}) (result sql.Result, err error) {
 	parser := dsc.NewDmlParser()
 	statement, err := parser.Parse(sql)
@@ -119,7 +122,7 @@ func (m *manager) runInsert(connection dsc.Connection, sql string, sqlParameters
 		return dsc.NewSQLResult(int64(1), int64(0)), nil
 
 	default:
-		return nil, fmt.Errorf("%v is not supproted by bigquery at m time", statement.Type)
+		return nil, fmt.Errorf("%v is not supproted at m time", statement.Type)
 	}
 }
 
