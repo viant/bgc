@@ -1,5 +1,5 @@
 ## April 16 2019 0.7.0
-    * Added rate limiter
+    * Integrated rate limiter
     * Minor refactoring
 
 ## April 15 2019 0.6.0
