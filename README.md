@@ -40,8 +40,9 @@ streamBatchCount controls row cound in batch (default 9999)
 ###### insertWaitTimeoutInMs
 
 When inserting data data this library checks upto 60 sec if data has been added.
-Tto control this behabiou you can set insertWaitTimeoutInMs (default 60 sec)
-To disable this mechanism set:
+To control this behaviour you can set insertWaitTimeoutInMs (default 60 sec)
+
+To disable this mechanism set: 
      insertWaitTimeoutInMs: -1
 
 ###### insertMaxRetires
