@@ -53,6 +53,13 @@ Retries insert when 503 internal error
 
 Default dataset
 
+###### pageSize
+
+Default 500
+
+The maximum number of rows of data to return per page of results. 
+In addition to this limit, responses are also limited to 10 MB. 
+
 
 ## Credentials
 
