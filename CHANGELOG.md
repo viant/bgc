@@ -1,3 +1,6 @@
+## August 5 2019 0.7.1
+    * Added pageSize config parameter to control MaxResult on query interator
+
 ## April 16 2019 0.7.0
     * Integrated rate limiter
     * Minor refactoring

@@ -12,7 +12,7 @@ import (
 )
 
 var useLegacySQL = "/* USE LEGACY SQL */"
-var queryPageSize int64 = 500
+var queryPageSize = 500
 var tickInterval = 100
 var doneStatus = "DONE"
 
@@ -136,7 +136,10 @@ func (qi *QueryIterator) Next() ([]interface{}, error) {
 
 func (qi *QueryIterator) fetchPage() error {
 	queryResultCall := qi.service.Jobs.GetQueryResults(qi.projectID, qi.jobReferenceID)
-	queryResultCall.MaxResults(queryPageSize).PageToken(qi.pageToken)
+
+	pageSize := qi.manager.Config().GetInt("pageSize", queryPageSize)
+
+	queryResultCall.MaxResults(int64(pageSize)).PageToken(qi.pageToken)
 
 	jobGetResult, err := queryResultCall.Context(qi.context).Do()
 	if err != nil {
