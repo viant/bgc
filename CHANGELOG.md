@@ -1,3 +1,6 @@
+## August 7 2019 0.7.2
+    * Update logic for retrying jobs with shared job reference  
+    
 ## August 5 2019 0.7.1
     * Added pageSize config parameter to control MaxResult on query interator
 
