@@ -1,3 +1,6 @@
+## September 11 2019 0.7.3
+    * Patched column meta data with repeated mode 
+    
 ## August 7 2019 0.7.2
     * Update logic for retrying jobs with shared job reference  
     
