@@ -1,3 +1,6 @@
+## Jan 8 2020 0.7.4
+    * Updated adjustDataType with []string, []integer, []float, bytes
+
 ## September 11 2019 0.7.3
     * Patched column meta data with repeated mode 
     

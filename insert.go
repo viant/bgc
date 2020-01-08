@@ -114,16 +114,64 @@ func (it *InsertTask) asJSONMap(record interface{}) map[string]bigquery.JsonValu
 			continue
 		}
 		if column, ok := it.columns[k]; ok {
-			switch strings.ToLower(column.DatabaseTypeName()) {
-			case "boolean":
-				val = toolbox.AsBoolean(val)
-			case "float":
-				val = toolbox.AsFloat(val)
-			}
+			val = it.adjustDataType(column, val)
 		}
 		jsonValues[k] = val
 	}
 	return jsonValues
+}
+
+func (it *InsertTask) adjustDataType(column dsc.Column, val interface{}) interface{} {
+	switch strings.ToLower(column.DatabaseTypeName()) {
+	case "[]string":
+		if ! toolbox.IsSlice(val) {
+			text := toolbox.AsString(val)
+			sep := getSeparator(text)
+			val = strings.Split(strings.TrimSpace(text), sep)
+		}
+	case "[]integer":
+		if ! toolbox.IsSlice(val) {
+			text := toolbox.AsString(val)
+			sep := getSeparator(text)
+			items := strings.Split(strings.TrimSpace(text), sep)
+			var values = make([]int, 0)
+			for _, item:= range items {
+				values = append(values, toolbox.AsInt(item))
+			}
+			val = values
+		}
+	case "[]float":
+		if ! toolbox.IsSlice(val) {
+			text := toolbox.AsString(val)
+			sep := getSeparator(text)
+			items := strings.Split(strings.TrimSpace(text), sep)
+			var values = make([]float64, 0)
+			for _, item:= range items {
+				values = append(values, toolbox.AsFloat(item))
+			}
+			val = values
+		}
+	case "bytes":
+		bs, ok := val.([]byte)
+		if ! ok {
+			bs = []byte(toolbox.AsString(val))
+		}
+		val = bs
+	case "boolean":
+		val = toolbox.AsBoolean(val)
+	case "float":
+		val = toolbox.AsFloat(val)
+	}
+	return val
+}
+
+
+func getSeparator(text string) string {
+	sep := ","
+	if ! strings.Contains(text, sep) {
+		 sep = " "
+	}
+	return sep
 }
 
 func (it *InsertTask) asMap(record interface{}) map[string]interface{} {
@@ -134,12 +182,7 @@ func (it *InsertTask) asMap(record interface{}) map[string]interface{} {
 			continue
 		}
 		if column, ok := it.columns[k]; ok {
-			switch strings.ToLower(column.DatabaseTypeName()) {
-			case "boolean":
-				val = toolbox.AsBoolean(val)
-			case "float":
-				val = toolbox.AsFloat(val)
-			}
+			val = it.adjustDataType(column, val)
 		}
 		jsonValues[k] = val
 	}
