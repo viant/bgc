@@ -35,7 +35,7 @@ For streaming you can specify which column to use as insertId with the following
 
 ###### streamBatchCount
 
-streamBatchCount controls row cound in batch (default 9999)
+streamBatchCount controls row count in batch (default 9999)
 
 ###### insertWaitTimeoutInMs
 
