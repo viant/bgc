@@ -35,7 +35,7 @@ For streaming you can specify which column to use as insertId with the following
 
 ###### streamBatchCount
 
-streamBatchCount controls row cound in batch (default 9999)
+streamBatchCount controls row count in batch (default 9999)
 
 ###### insertWaitTimeoutInMs
 
@@ -52,6 +52,13 @@ Retries insert when 503 internal error
 ###### datasetId 
 
 Default dataset
+
+###### pageSize
+
+Default 500
+
+The maximum number of rows of data to return per page of results. 
+In addition to this limit, responses are also limited to 10 MB. 
 
 
 ## Credentials

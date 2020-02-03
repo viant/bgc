@@ -16,6 +16,7 @@ func (s *scanner) Columns() ([]string, error) {
 }
 
 func (s *scanner) Scan(destinations ...interface{}) error {
+
 	if len(destinations) == 1 {
 		if aMap, ok := destinations[0].(map[string]interface{}); ok {
 			for i, column := range s.columns {
@@ -29,7 +30,6 @@ func (s *scanner) Scan(destinations ...interface{}) error {
 			}
 			return nil
 		}
-
 	}
 	for i, dest := range destinations {
 		value := s.Values[i]

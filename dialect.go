@@ -250,7 +250,11 @@ func (d dialect) GetColumns(manager dsc.Manager, datastore, table string) ([]dsc
 		return nil, fmt.Errorf("table schema was empty %v", table)
 	}
 	for _, column := range bqTable.Schema.Fields {
-		var tableColumn = dsc.NewSimpleColumn(column.Name, column.Type)
+		columnType := column.Type
+		if column.Mode == "REPEATED" {
+			columnType = "[]" + columnType
+		}
+		var tableColumn = dsc.NewSimpleColumn(column.Name, columnType)
 		result = append(result, tableColumn)
 	}
 	return result, nil

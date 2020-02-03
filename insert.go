@@ -39,8 +39,9 @@ type InsertTask struct {
 	manager           dsc.Manager
 	insertMethod      string
 	insertIdColumn    string
-	maxRetries        int
+	attempts          int
 	columns           map[string]dsc.Column
+	jobReference      *bigquery.JobReference
 }
 
 //InsertSingle streams single records into big query.
@@ -113,16 +114,64 @@ func (it *InsertTask) asJSONMap(record interface{}) map[string]bigquery.JsonValu
 			continue
 		}
 		if column, ok := it.columns[k]; ok {
-			switch strings.ToLower(column.DatabaseTypeName()) {
-			case "boolean":
-				val = toolbox.AsBoolean(val)
-			case "float":
-				val = toolbox.AsFloat(val)
-			}
+			val = it.adjustDataType(column, val)
 		}
 		jsonValues[k] = val
 	}
 	return jsonValues
+}
+
+func (it *InsertTask) adjustDataType(column dsc.Column, val interface{}) interface{} {
+	switch strings.ToLower(column.DatabaseTypeName()) {
+	case "[]string":
+		if ! toolbox.IsSlice(val) {
+			text := toolbox.AsString(val)
+			sep := getSeparator(text)
+			val = strings.Split(strings.TrimSpace(text), sep)
+		}
+	case "[]integer":
+		if ! toolbox.IsSlice(val) {
+			text := toolbox.AsString(val)
+			sep := getSeparator(text)
+			items := strings.Split(strings.TrimSpace(text), sep)
+			var values = make([]int, 0)
+			for _, item:= range items {
+				values = append(values, toolbox.AsInt(item))
+			}
+			val = values
+		}
+	case "[]float":
+		if ! toolbox.IsSlice(val) {
+			text := toolbox.AsString(val)
+			sep := getSeparator(text)
+			items := strings.Split(strings.TrimSpace(text), sep)
+			var values = make([]float64, 0)
+			for _, item:= range items {
+				values = append(values, toolbox.AsFloat(item))
+			}
+			val = values
+		}
+	case "bytes":
+		bs, ok := val.([]byte)
+		if ! ok {
+			bs = []byte(toolbox.AsString(val))
+		}
+		val = bs
+	case "boolean":
+		val = toolbox.AsBoolean(val)
+	case "float":
+		val = toolbox.AsFloat(val)
+	}
+	return val
+}
+
+
+func getSeparator(text string) string {
+	sep := ","
+	if ! strings.Contains(text, sep) {
+		 sep = " "
+	}
+	return sep
 }
 
 func (it *InsertTask) asMap(record interface{}) map[string]interface{} {
@@ -133,12 +182,7 @@ func (it *InsertTask) asMap(record interface{}) map[string]interface{} {
 			continue
 		}
 		if column, ok := it.columns[k]; ok {
-			switch strings.ToLower(column.DatabaseTypeName()) {
-			case "boolean":
-				val = toolbox.AsBoolean(val)
-			case "float":
-				val = toolbox.AsFloat(val)
-			}
+			val = it.adjustDataType(column, val)
 		}
 		jsonValues[k] = val
 	}
@@ -191,8 +235,10 @@ func (it *InsertTask) LoadAll(data interface{}) (int, error) {
 //InsertAll streams all records into big query, returns number records streamed or error.
 func (it *InsertTask) Insert(reader io.Reader) error {
 	req := &bigquery.Job{
+		JobReference: it.jobReference,
 		Configuration: &bigquery.JobConfiguration{
 			Load: &bigquery.JobConfigurationLoad{
+
 				SourceFormat: jsonFormat,
 				DestinationTable: &bigquery.TableReference{
 					ProjectId: it.projectID,
@@ -212,12 +258,16 @@ func (it *InsertTask) Insert(reader io.Reader) error {
 		jobJSON, _ := toolbox.AsIndentJSONText(req)
 		return fmt.Errorf("failed to submit insert job: %v, %v", jobJSON, err)
 	}
-
+	//store job reference in case internal server error, you may recommit job with the same id to avoid duplication
+	it.jobReference = job.JobReference
 	insertWaitTimeMs := it.manager.Config().GetInt(InsertWaitTimeoutInMsKey, defaultInsertWaitTime)
 	if insertWaitTimeMs <= 0 {
 		return nil
 	}
-	_, err = waitForJobCompletion(it.service, it.context, it.projectID, job.JobReference.JobId, insertWaitTimeMs)
+	if _, err = waitForJobCompletion(it.service, it.context, it.projectID, job.JobReference.JobId, insertWaitTimeMs); err == nil {
+		//no error reset job referenc
+		it.jobReference = nil
+	}
 	return err
 }
 
@@ -237,7 +287,7 @@ func (it *InsertTask) getRowCount() (int, error) {
 func (it *InsertTask) streamRows(rows []*bigquery.TableDataInsertAllRequestRows) (*bigquery.TableDataInsertAllResponse, error) {
 	var response *bigquery.TableDataInsertAllResponse
 	var err error
-	for i := 0; i < it.maxRetries; i++ {
+	for i := 0; i < it.attempts; i++ {
 		insertRequest := &bigquery.TableDataInsertAllRequest{}
 		insertRequest.Rows = rows
 		requestCall := it.service.Tabledata.InsertAll(it.projectID, it.datasetID, it.tableDescriptor.Table, insertRequest)
@@ -245,7 +295,7 @@ func (it *InsertTask) streamRows(rows []*bigquery.TableDataInsertAllRequestRows)
 		if response, err = requestCall.Context(it.context).Do(); isInternalServerError(err) {
 			log.Printf("retrying %v", err)
 			log.Printf("no insertIdColumn - duplicates expected")
-			if i+i >= it.maxRetries {
+			if i+i >= it.attempts {
 				continue
 			}
 			time.Sleep(time.Duration(1+i) * time.Second)
@@ -365,9 +415,9 @@ func (it *InsertTask) waitForData(estimatedRowCount int) error {
 func (it *InsertTask) InsertAll(data interface{}) (int, error) {
 	var count int
 	var err error
-	for i := 0; i < it.maxRetries; i++ {
+	for i := 0; i < it.attempts; i++ {
 		if count, err = it.insertAll(data); isInternalServerError(err) {
-			if i+i >= it.maxRetries {
+			if i+i >= it.attempts {
 				continue
 			}
 			time.Sleep(time.Duration(i+1) * time.Second)
@@ -409,14 +459,14 @@ func NewInsertTask(manager dsc.Manager, table *dsc.TableDescriptor, waitForCompl
 	if _, has := columns[insertIdColumn]; !has {
 		insertIdColumn = ""
 	}
-	maxRetries := config.GetInt(InsertMaxRetires, defaultInsertMaxRetries)
-	if maxRetries == 0 {
-		maxRetries = 1
+	attempts := config.GetInt(InsertMaxRetires, defaultInsertMaxRetries)
+	if attempts == 0 {
+		attempts = 1
 	}
 	return &InsertTask{
 		tableDescriptor:   table,
 		service:           service,
-		maxRetries:        maxRetries,
+		attempts:          attempts,
 		context:           ctx,
 		manager:           manager,
 		insertIdColumn:    insertIdColumn,

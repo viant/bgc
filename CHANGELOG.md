@@ -1,3 +1,15 @@
+## Jan 8 2020 0.7.4
+    * Updated adjustDataType with []string, []integer, []float, bytes
+
+## September 11 2019 0.7.3
+    * Patched column meta data with repeated mode 
+    
+## August 7 2019 0.7.2
+    * Update logic for retrying jobs with shared job reference  
+    
+## August 5 2019 0.7.1
+    * Added pageSize config parameter to control MaxResult on query interator
+
 ## April 16 2019 0.7.0
     * Integrated rate limiter
     * Minor refactoring
