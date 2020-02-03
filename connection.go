@@ -55,6 +55,7 @@ func asContext(wrapped interface{}) (*context.Context, error) {
 type connection struct {
 	*dsc.AbstractConnection
 	service *bigquery.Service
+	projectID string
 	context *context.Context
 }
 
@@ -131,7 +132,12 @@ func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
 	config := cp.ConnectionProvider.Config()
 	var err error
 	var authConfig *jwt.Config
-	if config.Credentials != "" {
+	ctx := context.Background()
+	var result = &connection{context: &ctx}
+
+	if config.CredConfig != nil {
+		authConfig, _, err = config.CredConfig.JWTConfig(bigQueryScope, bigQueryInsertScope)
+	} else if config.Credentials != "" {
 		authConfig, err = cp.newAuthConfigWithCredentialsFile()
 	} else if hasPrivateKey(config) {
 		authConfig, err = cp.newAuthConfig()
@@ -140,7 +146,6 @@ func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
 		return nil, err
 	}
 
-	ctx := context.Background()
 	var httpClient *http.Client
 	if authConfig != nil {
 		httpClient = oauth2.NewClient(ctx, authConfig.TokenSource(ctx))
@@ -149,16 +154,16 @@ func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
 			return nil, err
 		}
 	}
-	service, err := bigquery.New(httpClient)
+	result.service, err = bigquery.New(httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create bigquery connection - unable to create client:%v", err)
 	}
-	var bigQueryConnection = &connection{service: service, context: &ctx}
-	var connection = bigQueryConnection
+	var connection = result
 	var super = dsc.NewAbstractConnection(config, cp.ConnectionProvider.ConnectionPool(), connection)
-	bigQueryConnection.AbstractConnection = super
+	result.AbstractConnection = super
 	return connection, nil
 }
+
 
 func getDefaultClient(ctx context.Context) (*http.Client, error) {
 	o := []option.ClientOption{

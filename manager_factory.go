@@ -11,14 +11,21 @@ const defaultTimeFormat = "yyyy-MM-dd HH:mm:ss z"
 type managerFactory struct{}
 
 func (f *managerFactory) configInit(config *dsc.Config) error {
-	if config.Credentials != "" {
+
+	if config.CredConfig != nil {
+		_, projectID, _ := config.CredConfig.JWTConfig()
+		if !config.Has(ProjectIDKey) {
+			config.Parameters[ProjectIDKey] = projectID
+		}
+	} else if config.Credentials != "" {
 		secrets := secret.New("", false)
-		credentials, err := secrets.GetCredentials(config.Credentials)
+		credConfig, err := secrets.GetCredentials(config.Credentials)
 		if err != nil {
 			return err
 		}
+		config.CredConfig = credConfig
 		if !config.Has(ProjectIDKey) {
-			config.Parameters[ProjectIDKey] = credentials.ProjectID
+			config.Parameters[ProjectIDKey] = credConfig.ProjectID
 		}
 	}
 	if !config.Has(DateFormatKey) {
@@ -42,7 +49,6 @@ func (f *managerFactory) Create(config *dsc.Config) (dsc.Manager, error) {
 			return nil, fmt.Errorf("config.parameters.%v was missing", key)
 		}
 	}
-
 	manager.bigQueryConfig = newConfig(config)
 	return self, nil
 }
