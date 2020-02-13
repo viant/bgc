@@ -176,6 +176,22 @@ func (qi *QueryIterator) GetColumns() ([]string, error) {
 	return result, nil
 }
 
+//GetColumns returns query columns, after query executed.
+func (qi *QueryIterator) GetColumnTypes() ([]dsc.ColumnType, error) {
+	if qi.schema == nil {
+		return nil, errors.New("Failed to get table schema")
+	}
+	var result = make([]dsc.ColumnType, 0)
+	for _, field := range qi.schema.Fields {
+		typeName := field.Type
+		if strings.ToLower(field.Mode) == "repeated" {
+			typeName = "[]" + typeName
+		}
+		result = append(result, dsc.NewSimpleColumn(field.Name, typeName))
+	}
+	return result, nil
+}
+
 //NewQueryIterator creates a new query iterator for passed in datastore manager and query.
 func NewQueryIterator(manager dsc.Manager, query string) (*QueryIterator, error) {
 	service, context, err := GetServiceAndContextForManager(manager)

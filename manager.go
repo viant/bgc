@@ -160,8 +160,11 @@ func (m *manager) ReadAllOnWithHandlerOnConnection(connection dsc.Connection, sq
 	var biqQueryScanner *scanner
 	for iterator.HasNext() {
 		if biqQueryScanner == nil {
-			biqQueryScanner = newScaner(m.Config())
+			biqQueryScanner = newScanner(m.Config())
 			if biqQueryScanner.columns, err = iterator.GetColumns(); err != nil {
+				return fmt.Errorf("failed to read bigquery %v - unable to read query schema due to:\n\t%v", sql, err)
+			}
+			if biqQueryScanner.columnTypes, err = iterator.GetColumnTypes(); err != nil {
 				return fmt.Errorf("failed to read bigquery %v - unable to read query schema due to:\n\t%v", sql, err)
 			}
 		}

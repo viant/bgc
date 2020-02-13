@@ -6,17 +6,21 @@ import (
 )
 
 type scanner struct {
-	columns   []string
-	converter toolbox.Converter
-	Values    []interface{}
+	columns     []string
+	columnTypes []dsc.ColumnType
+	converter   toolbox.Converter
+	Values      []interface{}
 }
 
 func (s *scanner) Columns() ([]string, error) {
 	return s.columns, nil
 }
 
-func (s *scanner) Scan(destinations ...interface{}) error {
+func (s *scanner) ColumnTypes() ([]dsc.ColumnType, error) {
+	return s.columnTypes, nil
+}
 
+func (s *scanner) Scan(destinations ...interface{}) error {
 	if len(destinations) == 1 {
 		if aMap, ok := destinations[0].(map[string]interface{}); ok {
 			for i, column := range s.columns {
@@ -44,7 +48,7 @@ func (s *scanner) Scan(destinations ...interface{}) error {
 	return nil
 }
 
-func newScaner(config *dsc.Config) *scanner {
+func newScanner(config *dsc.Config) *scanner {
 	converter := toolbox.NewColumnConverter(config.GetDateLayout())
 	return &scanner{converter: *converter}
 }

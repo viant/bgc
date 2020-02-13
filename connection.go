@@ -54,9 +54,9 @@ func asContext(wrapped interface{}) (*context.Context, error) {
 
 type connection struct {
 	*dsc.AbstractConnection
-	service *bigquery.Service
+	service   *bigquery.Service
 	projectID string
-	context *context.Context
+	context   *context.Context
 }
 
 func (c *connection) Close() error {
@@ -163,7 +163,6 @@ func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
 	result.AbstractConnection = super
 	return connection, nil
 }
-
 
 func getDefaultClient(ctx context.Context) (*http.Client, error) {
 	o := []option.ClientOption{

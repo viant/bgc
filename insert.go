@@ -124,36 +124,36 @@ func (it *InsertTask) asJSONMap(record interface{}) map[string]bigquery.JsonValu
 func (it *InsertTask) adjustDataType(column dsc.Column, val interface{}) interface{} {
 	switch strings.ToLower(column.DatabaseTypeName()) {
 	case "[]string":
-		if ! toolbox.IsSlice(val) {
+		if !toolbox.IsSlice(val) {
 			text := toolbox.AsString(val)
 			sep := getSeparator(text)
 			val = strings.Split(strings.TrimSpace(text), sep)
 		}
 	case "[]integer":
-		if ! toolbox.IsSlice(val) {
+		if !toolbox.IsSlice(val) {
 			text := toolbox.AsString(val)
 			sep := getSeparator(text)
 			items := strings.Split(strings.TrimSpace(text), sep)
 			var values = make([]int, 0)
-			for _, item:= range items {
+			for _, item := range items {
 				values = append(values, toolbox.AsInt(item))
 			}
 			val = values
 		}
 	case "[]float":
-		if ! toolbox.IsSlice(val) {
+		if !toolbox.IsSlice(val) {
 			text := toolbox.AsString(val)
 			sep := getSeparator(text)
 			items := strings.Split(strings.TrimSpace(text), sep)
 			var values = make([]float64, 0)
-			for _, item:= range items {
+			for _, item := range items {
 				values = append(values, toolbox.AsFloat(item))
 			}
 			val = values
 		}
 	case "bytes":
 		bs, ok := val.([]byte)
-		if ! ok {
+		if !ok {
 			bs = []byte(toolbox.AsString(val))
 		}
 		val = bs
@@ -165,11 +165,10 @@ func (it *InsertTask) adjustDataType(column dsc.Column, val interface{}) interfa
 	return val
 }
 
-
 func getSeparator(text string) string {
 	sep := ","
-	if ! strings.Contains(text, sep) {
-		 sep = " "
+	if !strings.Contains(text, sep) {
+		sep = " "
 	}
 	return sep
 }
