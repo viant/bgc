@@ -21,6 +21,8 @@ import (
 var userAgent = "bgc/0.5.0"
 var bigQueryScope = "https://www.googleapis.com/auth/bigquery"
 var bigQueryInsertScope = "https://www.googleapis.com/auth/bigquery.insertdata"
+
+var googleDriveReadOnlyScope = "https://www.googleapis.com/auth/drive.readonly"
 var prodAddr = "https://www.googleapis.com/bigquery/v2/"
 
 const (
@@ -100,7 +102,7 @@ func (cp *connectionProvider) newAuthConfigWithCredentialsFile() (*jwt.Config, e
 	if err != nil {
 		return nil, err
 	}
-	return config.NewJWTConfig(bigQueryScope, bigQueryInsertScope)
+	return config.NewJWTConfig(bigQueryScope, bigQueryInsertScope, googleDriveReadOnlyScope)
 }
 
 func (cp *connectionProvider) newAuthConfig() (*jwt.Config, error) {
@@ -122,7 +124,7 @@ func (cp *connectionProvider) newAuthConfig() (*jwt.Config, error) {
 		Email:      serviceAccountID,
 		PrivateKey: privateKey,
 		Subject:    serviceAccountID,
-		Scopes:     []string{bigQueryScope, bigQueryInsertScope},
+		Scopes:     []string{bigQueryScope, bigQueryInsertScope, googleDriveReadOnlyScope},
 		TokenURL:   google.JWTTokenURL,
 	}
 	return authConfig, nil
@@ -136,7 +138,7 @@ func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
 	var result = &connection{context: &ctx}
 
 	if config.CredConfig != nil {
-		authConfig, _, err = config.CredConfig.JWTConfig(bigQueryScope, bigQueryInsertScope)
+		authConfig, _, err = config.CredConfig.JWTConfig(bigQueryScope, bigQueryInsertScope, googleDriveReadOnlyScope)
 	} else if config.Credentials != "" {
 		authConfig, err = cp.newAuthConfigWithCredentialsFile()
 	} else if hasPrivateKey(config) {
@@ -167,7 +169,7 @@ func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
 func getDefaultClient(ctx context.Context) (*http.Client, error) {
 	o := []option.ClientOption{
 		option.WithEndpoint(prodAddr),
-		option.WithScopes(bigQueryScope, bigQueryInsertScope),
+		option.WithScopes(bigQueryScope, bigQueryInsertScope, googleDriveReadOnlyScope),
 		option.WithUserAgent(userAgent),
 	}
 	httpClient, _, err := htransport.NewClient(ctx, o...)
