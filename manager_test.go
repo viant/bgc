@@ -18,7 +18,7 @@ var inited int32 = 0
 
 func initDb(t *testing.T) bool {
 
-	if !toolbox.FileExists(path.Join(os.Getenv("HOME"), ".secret/bq.json")) {
+	if !toolbox.FileExists(path.Join(os.Getenv("HOME"), ".secret/viant-e2e.json")) {
 		return false
 	}
 
@@ -74,6 +74,7 @@ func TestReadSingle(t *testing.T) {
 	}
 	manager := GetManager(t)
 	traveler := Traveler{}
+
 	success, err := manager.ReadSingle(&traveler, " SELECT id, name, lastVisitTime, visitedCities, achievements, mostLikedCity FROM travelers1 WHERE id = ?", []interface{}{4}, nil)
 	assert.Nil(t, err)
 	assert.True(t, success)

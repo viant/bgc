@@ -3,7 +3,6 @@ package bgc
 import (
 	"fmt"
 	"github.com/viant/dsc"
-	"github.com/viant/toolbox/secret"
 )
 
 const defaultTimeFormat = "yyyy-MM-dd HH:mm:ss z"
@@ -11,21 +10,9 @@ const defaultTimeFormat = "yyyy-MM-dd HH:mm:ss z"
 type managerFactory struct{}
 
 func (f *managerFactory) configInit(config *dsc.Config) error {
-
 	if config.CredConfig != nil {
-		_, projectID, _ := config.CredConfig.JWTConfig()
 		if !config.Has(ProjectIDKey) {
-			config.Parameters[ProjectIDKey] = projectID
-		}
-	} else if config.Credentials != "" {
-		secrets := secret.New("", false)
-		credConfig, err := secrets.GetCredentials(config.Credentials)
-		if err != nil {
-			return err
-		}
-		config.CredConfig = credConfig
-		if !config.Has(ProjectIDKey) {
-			config.Parameters[ProjectIDKey] = credConfig.ProjectID
+			config.Parameters[ProjectIDKey] = config.CredConfig.ProjectID
 		}
 	}
 	if !config.Has(DateFormatKey) {

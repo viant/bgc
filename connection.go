@@ -2,19 +2,17 @@ package bgc
 
 import (
 	"fmt"
+	"github.com/viant/scy/auth/gcp"
+	"github.com/viant/scy/auth/gcp/client"
+	"github.com/viant/scy/cred/secret"
 	"net/http"
 
 	"github.com/viant/dsc"
-	"github.com/viant/toolbox/secret"
+
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
-	"golang.org/x/oauth2/jwt"
 	"google.golang.org/api/bigquery/v2"
 	"google.golang.org/api/option"
 	htransport "google.golang.org/api/transport/http"
-	"io/ioutil"
-	"os"
 	"reflect"
 )
 
@@ -97,66 +95,40 @@ type connectionProvider struct {
 	*dsc.AbstractConnectionProvider
 }
 
-func (cp *connectionProvider) newAuthConfigWithCredentialsFile() (*jwt.Config, error) {
-	config, err := secret.New("", false).GetCredentials(cp.Config().Credentials)
-	if err != nil {
-		return nil, err
-	}
-	return config.NewJWTConfig(bigQueryScope, bigQueryInsertScope, googleDriveReadOnlyScope)
-}
-
-func (cp *connectionProvider) newAuthConfig() (*jwt.Config, error) {
-	config := cp.Config()
-	serviceAccountID := config.Get(ServiceAccountIdKey)
-	var privateKey []byte
-	if config.Has(PrivateKey) {
-		privateKey = []byte(config.Get(PrivateKey))
-	} else {
-		var err error
-		privateKeyPath := config.Get(PrivateKeyPathKey)
-		privateKey, err = ioutil.ReadFile(privateKeyPath)
-		if err != nil {
-			hostname, _ := os.Hostname()
-			return nil, fmt.Errorf("failed to create bigquery connection - unable to read private key from path %v:%v,  %v", hostname, privateKeyPath, err)
-		}
-	}
-	authConfig := &jwt.Config{
-		Email:      serviceAccountID,
-		PrivateKey: privateKey,
-		Subject:    serviceAccountID,
-		Scopes:     []string{bigQueryScope, bigQueryInsertScope, googleDriveReadOnlyScope},
-		TokenURL:   google.JWTTokenURL,
-	}
-	return authConfig, nil
-}
-
 func (cp *connectionProvider) NewConnection() (dsc.Connection, error) {
 	config := cp.ConnectionProvider.Config()
 	var err error
-	var authConfig *jwt.Config
+
 	ctx := context.Background()
 	var result = &connection{context: &ctx}
 
-	if config.CredConfig != nil {
-		authConfig, _, err = config.CredConfig.JWTConfig(bigQueryScope, bigQueryInsertScope, googleDriveReadOnlyScope)
-	} else if config.Credentials != "" {
-		authConfig, err = cp.newAuthConfigWithCredentialsFile()
-	} else if hasPrivateKey(config) {
-		authConfig, err = cp.newAuthConfig()
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	var httpClient *http.Client
-	if authConfig != nil {
-		httpClient = oauth2.NewClient(ctx, authConfig.TokenSource(ctx))
-	} else {
-		if httpClient, err = getDefaultClient(ctx); err != nil {
+	sec := secret.New()
+	var options = make([]option.ClientOption, 0)
+	options = append(options, option.WithScopes(bigQueryScope, bigQueryInsertScope, googleDriveReadOnlyScope))
+	usesAuth := false
+	if config.Credentials != "" {
+		aSecret, err := sec.Lookup(context.Background(), secret.Resource(config.Credentials))
+		if err != nil {
 			return nil, err
 		}
+		data := aSecret.String()
+		options = append(options, option.WithCredentialsJSON([]byte(data)))
+		options = append(options, option.WithUserAgent(userAgent))
+
+		usesAuth = true
 	}
-	result.service, err = bigquery.New(httpClient)
+
+	if !usesAuth {
+		gcpService := gcp.New(client.NewScy())
+		httpClient, err := gcpService.AuthClient(context.Background(), append(gcp.Scopes, bigQueryScope, bigQueryInsertScope, googleDriveReadOnlyScope)...)
+		if err == nil && httpClient != nil {
+			options = append(options, option.WithHTTPClient(httpClient))
+		}
+
+	}
+
+	service, err := bigquery.NewService(ctx, options...)
+	result.service = service
 	if err != nil {
 		return nil, fmt.Errorf("failed to create bigquery connection - unable to create client:%v", err)
 	}

@@ -1,4 +1,4 @@
 driverName: bigquery
-credentials: bq # place your big query secret json to ~/.secret/bg.json
+#credentials: viant-e2e # place your big query secret json to ~/.secret/bg.json
 parameters:
   datasetId: myDataset
